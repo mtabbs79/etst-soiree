@@ -358,9 +358,9 @@ function adminDashboard({ admin, guests, baseUrl, flash, importReport, email = {
       <h2>Import guest list</h2>
       <p class="muted">Paste from Excel or a CSV. Columns, in this order, with or without a header row:</p>
       <code class="cols">first name, last name, email, location</code>
-      <p class="muted small">Location: anything mentioning <em>Florida</em>, <em>FL</em> or <em>Miami</em> = Florida invite; anything else (e.g. <em>Travel</em>, <em>GA</em>, <em>Texas</em>) = travel invite. Rows with a blank location are not imported. Every guest is invited with a plus one. Emails already on the list are skipped.</p>
+      <p class="muted small">Location: <em>Florida</em> or <em>Other</em>. Florida = local invite (RSVP by Dec 1). Other = out of state, travel invite (RSVP by Nov 16, airfare and hotel covered). Rows with a blank location are not imported. Every guest is invited with a plus one. Emails already on the list are skipped.</p>
       <form method="post" action="/admin/import" class="stack">
-        <textarea name="csv" rows="7" placeholder="Jane,Smith,jane@example.com,Florida&#10;Tom,Lee,tom@example.com,Texas"></textarea>
+        <textarea name="csv" rows="7" placeholder="Jane,Smith,jane@example.com,Florida&#10;Tom,Lee,tom@example.com,Other"></textarea>
         <button class="btn">Import</button>
       </form>
     </section>
