@@ -32,7 +32,7 @@ function layout(title, body, { admin = false, bodyClass = '' } = {}) {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Great+Vibes&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/style.css?v=4">
+<link rel="stylesheet" href="/static/style.css?v=5">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='24' cy='40' r='12' fill='%237a1424'/><circle cx='42' cy='36' r='12' fill='%23a3203a'/><path d='M30 26 C34 14 44 10 52 12' stroke='%232f4a2a' stroke-width='5' fill='none'/></svg>">
 </head>
 <body class="${admin ? 'admin' : 'guest'} ${bodyClass}">
@@ -68,14 +68,26 @@ function contactLine() {
 
 // ---------- Guest pages ----------
 
-function home() {
+function home({ error = '', values = {} } = {}) {
   return layout(`${E.title} ${E.titleAccent} · ETST`, card(`
   ${eventHeader()}
   <div class="banner"><strong>You and your plus one</strong><em>are cordially invited</em></div>
   <div class="notice">
-    <p>Each guest has a <strong>personal RSVP link</strong> in their invitation email. Please use that link to reply.</p>
+    <p>Each guest has a <strong>personal RSVP link</strong> in their invitation email. Can’t find it? Look up your invitation below.</p>
     <p class="small">${contactLine()}</p>
   </div>
+  <form method="post" action="/find" class="rsvp lookup">
+    <fieldset>
+      <legend>Find your invitation</legend>
+      <p class="hint">Enter your name and the email address your invitation was sent to.</p>
+      ${error ? `<div class="errors">${esc(error)}</div>` : ''}
+      <label class="field"><span>Your name</span>
+        <input name="name" value="${attr(values.name || '')}" required maxlength="120" autocomplete="name" placeholder="First and last name"></label>
+      <label class="field"><span>Email</span>
+        <input type="email" name="email" value="${attr(values.email || '')}" required maxlength="120" autocomplete="email" inputmode="email"></label>
+      <button class="btn">Find my RSVP</button>
+    </fieldset>
+  </form>
   ${footerNotes()}`));
 }
 

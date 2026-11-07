@@ -63,6 +63,22 @@ function throttled(ip) {
   return recent.length >= 10;
 }
 
+// Guest lookup on the home page: name + email must both match. Failed tries are
+// throttled per IP so the form can't be used to guess who is on the list.
+const lookups = new Map();
+function tooManyLookups(ip) {
+  const now = Date.now(), w = (lookups.get(ip) || []).filter(t => now - t < 15 * 60 * 1000);
+  lookups.set(ip, w);
+  return w.length >= 8;
+}
+const norm = (v) => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z\s]/g, ' ').split(/\s+/).filter(Boolean);
+// The typed name must include the guest's first name or any part of their last name ("Giorgio Saumat", "Medina").
+function nameMatches(typed, g) {
+  const words = new Set(norm(typed));
+  const first = norm(g.first_name), last = norm(g.last_name).filter(w => w.length > 1 && !['jr', 'sr', 'ii', 'iii', 'iv'].includes(w));
+  return first.some(w => words.has(w)) || last.some(w => words.has(w));
+}
+
 // ---------- RSVP validation ----------
 
 function readRsvp(body, g) {
@@ -210,6 +226,17 @@ async function handle(req, res) {
   if (p === '/healthz') return send(res, 200, 'ok', { 'Content-Type': 'text/plain' });
   if (p.startsWith('/static/')) return serveStatic(res, p.slice('/static/'.length));
   if (p === '/' && m === 'GET') return send(res, 200, views.home());
+  if (p === '/find' && m === 'GET') return redirect(res, '/');
+  if (p === '/find' && m === 'POST') {
+    const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress;
+    const body = await readBody(req, 10_000);
+    const values = { name: clean(body.name, 120), email: clean(body.email, 120) };
+    if (tooManyLookups(ip)) return send(res, 429, views.home({ values, error: 'Too many tries. Please wait 15 minutes, or use the link in your invitation email.' }));
+    const g = await db.guestByEmail(values.email);
+    if (g && nameMatches(values.name, g)) return redirect(res, `/i/${g.token}`);
+    lookups.get(ip).push(Date.now());
+    return send(res, 404, views.home({ values, error: 'We couldn’t find an invitation with that name and email. Please check the spelling and use the email address your invitation was sent to.' }));
+  }
 
   // Guest RSVP
   let mm = p.match(/^\/i\/([A-Za-z0-9_-]{6,40})(\/thanks)?$/);

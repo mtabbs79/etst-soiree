@@ -16,7 +16,8 @@ RSVP site for ETST's Annual "A Very Merry Soirée", Fri Dec 11, 2026, 7–11 PM,
   · `src/auth.js` signed-cookie admin session · `src/csv.js` · `src/config.js` event text and deadlines
 - Guest pages are built from the invitation artwork: `public/hero.jpg` (top), `public/paper.jpg` (tiled middle), `public/footer.jpg`.
   No white backgrounds on guest pages except text inputs.
-- Each guest has a personal link `/i/<token>`. Admin pages are at `/admin`, behind the shared `ADMIN_PASSWORD`.
+- Each guest has a personal link `/i/<token>`. The home page also has a "Find your invitation" lookup (POST /find): name + email must both match,
+  failed tries are throttled per IP (8 per 15 min). Admin pages are at `/admin`, behind the shared `ADMIN_PASSWORD`.
 
 ## Hosting
 - Render (workspace "Mario's workspace"): web service `etst-soiree` (starter, virginia), Postgres `etst-soiree-db` (basic_256mb).

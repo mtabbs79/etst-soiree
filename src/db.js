@@ -76,6 +76,12 @@ async function guestByToken(token) {
   return rows[0] || null;
 }
 
+async function guestByEmail(email) {
+  if (!email) return null;
+  const { rows } = await pool.query(`SELECT id, token, first_name, last_name FROM guests WHERE lower(email) = lower($1) AND email <> ''`, [email]);
+  return rows[0] || null;
+}
+
 async function listGuests() {
   const { rows } = await pool.query(
     `SELECT ${GUEST_COLS}, ${RSVP_COLS} FROM guests g LEFT JOIN rsvps r ON r.guest_id = g.id
@@ -169,4 +175,4 @@ async function sentToday() {
   return rows[0] ? rows[0].n : 0;
 }
 
-module.exports = { logEmail, recentEmails, sentToday, pool, init, guestByToken, listGuests, addGuest, updateGuest, emailExists, deleteGuest, saveRsvp, clearRsvp };
+module.exports = { guestByEmail, logEmail, recentEmails, sentToday, pool, init, guestByToken, listGuests, addGuest, updateGuest, emailExists, deleteGuest, saveRsvp, clearRsvp };
