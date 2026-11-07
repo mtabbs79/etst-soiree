@@ -199,3 +199,12 @@ body.admin .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 body.admin .btn { box-shadow: none; border-radius: 8px; }
 body.admin .btn.small { width: auto; }
 .filters input, .filters select { width: auto !important; }
+
+.warn { color: #a3122a !important; }
+.email-panel h3 { font-size: 15px; margin: 0 0 4px; color: #2b211b; }
+.email-panel .mini { background: #fbf7ee; border: 1px solid #eee1c6; border-radius: 8px; padding: 12px; }
+.recent ul { margin: 8px 0 0; padding-left: 18px; font-size: 13px; }
+.recent summary { cursor: pointer; color: var(--burgundy); margin-top: 10px; }
+.email-frame { width: 100%; height: 900px; border: 1px solid #e6d9c0; border-radius: 6px; background: #4e0b16; }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+.preview-grid { grid-template-columns: 2fr 3fr; }

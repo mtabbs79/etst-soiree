@@ -40,6 +40,20 @@ const SCHEMA = [
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_by TEXT NOT NULL DEFAULT 'guest'
   )`,
+  `ALTER TABLE guests ADD COLUMN IF NOT EXISTS invited_at TIMESTAMPTZ`,
+  `ALTER TABLE guests ADD COLUMN IF NOT EXISTS invite_count INTEGER NOT NULL DEFAULT 0`,
+  `CREATE TABLE IF NOT EXISTS email_log (
+    id SERIAL PRIMARY KEY,
+    guest_id INTEGER REFERENCES guests(id) ON DELETE SET NULL,
+    to_email TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    status TEXT NOT NULL,
+    error TEXT NOT NULL DEFAULT '',
+    provider_id TEXT NOT NULL DEFAULT '',
+    sent_by TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  )`,
 ];
 
 async function init() {
@@ -48,7 +62,7 @@ async function init() {
 
 const newToken = () => crypto.randomBytes(9).toString('base64url');
 
-const GUEST_COLS = 'g.id, g.token, g.first_name, g.last_name, g.email, g.grp, g.plus_one_allowed, g.notes, g.created_at';
+const GUEST_COLS = 'g.id, g.token, g.first_name, g.last_name, g.email, g.grp, g.plus_one_allowed, g.notes, g.created_at, g.invited_at, g.invite_count';
 const RSVP_COLS = `r.attending, r.plus_one, r.plus_one_name, r.after_party, r.dietary, r.phone,
   r.legal_name, r.plus_one_legal_name, r.home_airport, r.arrival_date, r.departure_date,
   r.needs_hotel, r.travel_notes, r.submitted_at, r.updated_at, r.updated_by,
@@ -125,4 +139,34 @@ async function clearRsvp(guestId) {
   return rows[0];
 }
 
-module.exports = { pool, init, guestByToken, listGuests, addGuest, updateGuest, emailExists, deleteGuest, saveRsvp, clearRsvp };
+async function logEmail({ guest_id, to_email, kind, subject, status, error, provider_id, sent_by }) {
+  const { rows } = await pool.query(
+    `INSERT INTO email_log (guest_id, to_email, kind, subject, status, error, provider_id, sent_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+    [guest_id || null, to_email, kind, subject, status, error || '', provider_id || '', sent_by || '']
+  );
+  if (status === 'sent' && kind === 'invite' && guest_id) {
+    await pool.query(`UPDATE guests SET invited_at = now(), invite_count = invite_count + 1 WHERE id = $1 RETURNING id`, [guest_id]);
+  }
+  return rows[0];
+}
+
+async function recentEmails(limit = 15) {
+  const { rows } = await pool.query(
+    `SELECT kind, subject, sent_by, min(created_at) AS at,
+       sum(CASE WHEN status = 'sent' THEN 1 ELSE 0 END)::int AS sent,
+       sum(CASE WHEN status = 'failed' THEN 1 ELSE 0 END)::int AS failed
+     FROM email_log GROUP BY kind, subject, sent_by, date_trunc('minute', created_at)
+     ORDER BY min(created_at) DESC LIMIT $1`, [limit]
+  );
+  return rows;
+}
+
+async function sentToday() {
+  const { rows } = await pool.query(
+    `SELECT count(*)::int AS n FROM email_log WHERE status = 'sent' AND created_at > now() - interval '24 hours'`
+  );
+  return rows[0] ? rows[0].n : 0;
+}
+
+module.exports = { logEmail, recentEmails, sentToday, pool, init, guestByToken, listGuests, addGuest, updateGuest, emailExists, deleteGuest, saveRsvp, clearRsvp };

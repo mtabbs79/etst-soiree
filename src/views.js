@@ -281,7 +281,7 @@ function tile(label, value, sub) {
   return `<div class="tile"><div class="tile-v">${value}</div><div class="tile-l">${label}</div>${sub ? `<div class="tile-s">${sub}</div>` : ''}</div>`;
 }
 
-function adminDashboard({ admin, guests, baseUrl, flash, importReport }) {
+function adminDashboard({ admin, guests, baseUrl, flash, importReport, email = {} }) {
   const s = stats(guests);
   const now = Date.now();
   const dl = (grp) => `${now > config.deadlines[grp] ? 'Closed' : 'Closes'} ${fmtShortET(config.deadlines[grp])}`;
@@ -307,7 +307,7 @@ function adminDashboard({ admin, guests, baseUrl, flash, importReport }) {
     return `<tr data-grp="${g.grp}" data-st="${st}" data-q="${attr(search)}">
       <td><strong>${esc(g.first_name)} ${esc(g.last_name)}</strong><div class="muted">${esc(g.email)}</div></td>
       <td><span class="pill ${g.grp}">${g.grp === 'travel' ? 'Travel' : 'Florida'}</span></td>
-      <td><span class="pill st-${st}">${st === 'yes' ? 'Attending' : st === 'no' ? 'Declined' : 'No reply'}</span>${g.responded ? `<div class="muted">${esc(fmtShortET(g.updated_at))}${g.updated_by !== 'guest' ? ' · by ' + esc(g.updated_by) : ''}</div>` : ''}</td>
+      <td>${g.invited_at ? `<div class="muted">Invited ${esc(fmtShortET(g.invited_at))}${g.invite_count > 1 ? ` (${g.invite_count}×)` : ''}</div>` : (g.email ? '<div class="muted">Not invited yet</div>' : '<div class="muted warn">No email</div>')}<span class="pill st-${st}">${st === 'yes' ? 'Attending' : st === 'no' ? 'Declined' : 'No reply'}</span>${g.responded ? `<div class="muted">${esc(fmtShortET(g.updated_at))}${g.updated_by !== 'guest' ? ' · by ' + esc(g.updated_by) : ''}</div>` : ''}</td>
       <td>${g.responded && g.attending && g.plus_one ? esc(g.plus_one_name) : '<span class="muted">—</span>'}</td>
       <td class="muted">${g.responded && g.attending ? esc([g.after_party ? 'After party: ' + g.after_party : '', g.dietary ? 'Diet: ' + g.dietary : ''].filter(Boolean).join(' · ')) : ''}</td>
       <td class="actions">
@@ -324,6 +324,7 @@ function adminDashboard({ admin, guests, baseUrl, flash, importReport }) {
   ${!baseUrl.startsWith('http') ? '' : ''}
   <div class="grid-3">${group('all', 'Everyone')}${group('florida', 'Florida')}${group('travel', 'Out of state (travel)')}</div>
 
+  ${emailPanel(guests, email)}
   <section class="panel">
     <div class="panel-head">
       <h2>Guests <span class="muted">(${guests.length})</span></h2>
@@ -367,6 +368,82 @@ function adminDashboard({ admin, guests, baseUrl, flash, importReport }) {
   ${adminScript()}`, admin);
 }
 
+function emailPanel(guests, email) {
+  const notInvited = (grp) => guests.filter(g => g.email && !g.invited_at && (grp === 'all' || g.grp === grp)).length;
+  const pending = (grp) => guests.filter(g => g.email && !g.responded && (grp === 'all' || g.grp === grp)).length;
+  const grpSelect = `<select name="grp"><option value="all">Everyone</option><option value="florida">Florida</option><option value="travel">Travel</option></select>`;
+  const recent = (email.recent || []).map(r => `<li><strong>${esc({ invite: 'Invitations', reminder: 'Reminder', update: 'Update' }[r.kind] || r.kind)}</strong> · ${esc(r.subject)} · ${r.sent} sent${r.failed ? `, <span class="warn">${r.failed} failed</span>` : ''} · ${esc(fmtShortET(r.at))} by ${esc(r.sent_by)}</li>`).join('');
+  return `<section class="panel email-panel">
+    <div class="panel-head"><h2>Email guests</h2>
+      <span class="muted">From ${esc(config.mailFrom)} · replies go to ${esc(config.mailReplyTo)}${email.enabled ? ` · ${email.sentToday} sent in the last 24 hours` : ''}</span></div>
+    ${email.enabled ? '' : '<div class="errors">Email isn’t connected yet (RESEND_API_KEY isn’t set). You can still preview every email.</div>'}
+    <div class="grid-3">
+      <form method="post" action="/admin/email/preview" class="stack mini">
+        <input type="hidden" name="kind" value="invite">
+        <h3>Send invitations</h3>
+        <p class="muted">Not invited yet: ${notInvited('florida')} Florida · ${notInvited('travel')} Travel</p>
+        <label class="field"><span>Who</span>${grpSelect}</label>
+        <label class="field"><span>Include guests already invited?</span><select name="who"><option value="new">No, only guests not invited yet</option><option value="everyone">Yes, resend to everyone in the group</option></select></label>
+        <label class="field"><span>Send at most</span><input type="number" name="limit" value="100" min="1" max="1000"></label>
+        <button class="btn">Preview</button>
+      </form>
+      <form method="post" action="/admin/email/preview" class="stack mini">
+        <input type="hidden" name="kind" value="reminder">
+        <h3>Remind people who haven’t replied</h3>
+        <p class="muted">No reply yet: ${pending('florida')} Florida · ${pending('travel')} Travel</p>
+        <label class="field"><span>Who</span>${grpSelect}</label>
+        <input type="hidden" name="who" value="pending">
+        <label class="field"><span>Send at most</span><input type="number" name="limit" value="100" min="1" max="1000"></label>
+        <button class="btn">Preview</button>
+      </form>
+      <form method="post" action="/admin/email/preview" class="stack mini">
+        <input type="hidden" name="kind" value="update">
+        <h3>Send a party update</h3>
+        <div class="two">
+          <label class="field"><span>Group</span>${grpSelect}</label>
+          <label class="field"><span>Status</span><select name="who"><option value="attending">Attending</option><option value="pending">No reply yet</option><option value="everyone">Everyone invited</option></select></label>
+        </div>
+        <label class="field"><span>Subject</span><input name="subject" required maxlength="150" placeholder="Soirée update: parking & valet"></label>
+        <label class="field"><span>Message</span><textarea name="message" rows="4" required maxlength="5000" placeholder="Write your update. Leave a blank line between paragraphs."></textarea></label>
+        <input type="hidden" name="limit" value="1000">
+        <button class="btn">Preview</button>
+      </form>
+    </div>
+    ${recent ? `<details class="recent"><summary>Recent sends</summary><ul>${recent}</ul></details>` : ''}
+  </section>`;
+}
+
+function adminEmailPreview({ admin, kind, form, recipients, skipped, sample, enabled }) {
+  const label = { invite: 'invitation', reminder: 'reminder', update: 'update' }[kind];
+  const hidden = Object.entries(form).map(([k, v]) => `<input type="hidden" name="${attr(k)}" value="${attr(v)}">`).join('');
+  const names = recipients.slice(0, 40).map(g => `${esc(g.first_name)} ${esc(g.last_name)}`).join(', ') + (recipients.length > 40 ? `, and ${recipients.length - 40} more` : '');
+  return adminShell('Preview email', `
+  <p><a href="/admin" class="link">← Back to dashboard</a></p>
+  <div class="grid-2 preview-grid">
+    <section class="panel">
+      <h2>Send this ${label} to ${recipients.length} guest${recipients.length === 1 ? '' : 's'}?</h2>
+      ${recipients.length ? `<p class="muted">${names}</p>` : '<p>Nobody matches. Nothing to send.</p>'}
+      ${skipped ? `<p class="muted warn">${skipped} guest${skipped === 1 ? ' has' : 's have'} no email address and will be skipped.</p>` : ''}
+      ${sample ? `<p><strong>Subject:</strong> ${esc(sample.subject)}</p>` : ''}
+      ${!enabled ? '<div class="errors">Email isn’t connected yet, so sending is turned off.</div>' : ''}
+      <form method="post" action="/admin/email/test" class="stack">
+        ${hidden}
+        <label class="field"><span>Send a test to yourself first</span><input type="email" name="test_to" required placeholder="you@example.com"></label>
+        <button class="btn ghost small" ${enabled && recipients.length ? '' : 'disabled'}>Send test</button>
+      </form>
+      <hr>
+      <form method="post" action="/admin/email/send" onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').textContent='Sending…';">
+        ${hidden}
+        <button class="btn" ${enabled && recipients.length ? '' : 'disabled'}>Send to ${recipients.length} guest${recipients.length === 1 ? '' : 's'}</button>
+      </form>
+    </section>
+    <section class="panel">
+      <h2>Preview${sample ? ` (as ${esc(sample.forName)} will see it)` : ''}</h2>
+      ${sample ? `<iframe class="email-frame" sandbox srcdoc="${attr(sample.html)}"></iframe>` : '<p class="muted">No preview.</p>'}
+    </section>
+  </div>`, admin);
+}
+
 function guestFields(g) {
   return `
   <div class="two">
@@ -399,6 +476,10 @@ function adminEditGuest({ admin, g, baseUrl, error }) {
       </form>
     </section>
     <section class="panel">
+      <h2>Invitation email</h2>
+      <p class="muted">${g.invited_at ? `Sent ${esc(fmtShortET(g.invited_at))}${g.invite_count > 1 ? ` (${g.invite_count} times)` : ''}.` : 'Not sent yet.'}</p>
+      ${g.email ? `<form method="post" action="/admin/guests/${g.id}/invite" onsubmit="return confirm('Email the invitation to ${attr(g.email)}?')"><button class="btn ghost small">${g.invited_at ? 'Resend invitation' : 'Send invitation'}</button></form>` : '<p class="muted warn">Add an email address to send the invitation.</p>'}
+      <hr>
       <h2>RSVP</h2>
       ${g.responded ? rsvpSummary(g) : '<p class="muted">No reply yet.</p>'}
       <p><a class="btn ghost small" href="/i/${attr(g.token)}" target="_blank">${g.responded ? 'Edit their RSVP' : 'RSVP on their behalf'}</a></p>
@@ -448,4 +529,4 @@ document.addEventListener('click',function(e){
 </script>`;
 }
 
-module.exports = { home, rsvpForm, thanks, notFound, adminLogin, adminDashboard, adminEditGuest, esc, statusOf };
+module.exports = { adminEmailPreview, home, rsvpForm, thanks, notFound, adminLogin, adminDashboard, adminEditGuest, esc, statusOf };

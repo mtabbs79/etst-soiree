@@ -5,6 +5,7 @@ const config = require('./config');
 const db = require('./db');
 const views = require('./views');
 const auth = require('./auth');
+const mail = require('./mail');
 const csv = require('./csv');
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -175,6 +176,22 @@ async function exportCsv(res, kind, req) {
   });
 }
 
+// ---------- email helpers ----------
+
+async function emailInfo() {
+  return { enabled: mail.enabled(), sentToday: await db.sentToday(), recent: await db.recentEmails() };
+}
+
+function pickRecipients(guests, { kind, grp, who, limit }) {
+  let list = guests.filter(g => grp === 'all' || g.grp === grp);
+  if (kind === 'invite' && who !== 'everyone') list = list.filter(g => !g.invited_at);
+  if (kind === 'reminder' || who === 'pending') list = list.filter(g => !g.responded);
+  if (kind === 'update' && who === 'attending') list = list.filter(g => g.responded && g.attending);
+  const skipped = list.filter(g => !g.email).length;
+  const n = Math.max(1, Math.min(1000, parseInt(limit, 10) || 100));
+  return { recipients: list.filter(g => g.email).slice(0, n), skipped };
+}
+
 // ---------- router ----------
 
 async function handle(req, res) {
@@ -228,12 +245,12 @@ async function handle(req, res) {
 
     if (p === '/admin' && m === 'GET') {
       const flash = url.searchParams.get('msg') || '';
-      return send(res, 200, views.adminDashboard({ admin, guests: await db.listGuests(), baseUrl: base, flash }), { 'Cache-Control': 'no-store' });
+      return send(res, 200, views.adminDashboard({ admin, guests: await db.listGuests(), baseUrl: base, flash, email: await emailInfo() }), { 'Cache-Control': 'no-store' });
     }
     if (p === '/admin/import' && m === 'POST') {
       const body = await readBody(req);
       const rep = await importCsv(body.csv || '');
-      return send(res, 200, views.adminDashboard({ admin, guests: await db.listGuests(), baseUrl: base, importReport: importReportHtml(rep) }), { 'Cache-Control': 'no-store' });
+      return send(res, 200, views.adminDashboard({ admin, guests: await db.listGuests(), baseUrl: base, importReport: importReportHtml(rep), email: await emailInfo() }), { 'Cache-Control': 'no-store' });
     }
     if (p === '/admin/guests' && m === 'POST') {
       const b = await readBody(req);
@@ -242,6 +259,43 @@ async function handle(req, res) {
       if (email && await db.emailExists(email)) return redirect(res, '/admin?msg=' + encodeURIComponent(`${email} is already on the guest list.`));
       await db.addGuest({ first_name: first, last_name: clean(b.last_name, 60), email, grp: b.grp === 'travel' ? 'travel' : 'florida', plus_one_allowed: true });
       return redirect(res, '/admin?msg=' + encodeURIComponent(`Added ${first}.`));
+    }
+    if (p === '/admin/email/preview' || p === '/admin/email/test' || p === '/admin/email/send') {
+      if (m !== 'POST') return redirect(res, '/admin');
+      const b = await readBody(req);
+      const kind = ['invite', 'reminder', 'update'].includes(b.kind) ? b.kind : 'invite';
+      const form = { kind, grp: b.grp || 'all', who: b.who || 'new', limit: b.limit || '100', subject: clean(b.subject, 150), message: clean(b.message, 5000) };
+      if (kind === 'update' && (!form.subject || !form.message)) return redirect(res, '/admin?msg=' + encodeURIComponent('Add a subject and message for the update.'));
+      const { recipients, skipped } = pickRecipients(await db.listGuests(), form);
+      const opts = { subject: form.subject, message: form.message };
+      if (p === '/admin/email/preview') {
+        const sg = recipients[0] || { first_name: 'Guest', last_name: '', email: 'guest@example.com', token: 'sample-link', grp: form.grp === 'travel' ? 'travel' : 'florida' };
+        const built = mail.build(kind, sg, base, opts);
+        return send(res, 200, views.adminEmailPreview({ admin, kind, form, recipients, skipped, enabled: mail.enabled(),
+          sample: { ...built, forName: `${sg.first_name} ${sg.last_name}`.trim() } }), { 'Cache-Control': 'no-store' });
+      }
+      if (!mail.enabled()) return redirect(res, '/admin?msg=' + encodeURIComponent('Email isn’t connected yet.'));
+      if (p === '/admin/email/test') {
+        const to = clean(b.test_to, 120);
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) return redirect(res, '/admin?msg=' + encodeURIComponent('Enter a valid test email.'));
+        const sample = recipients.length ? [recipients[0]] : [];
+        // Send one of each group so you see both versions of an invitation.
+        const other = recipients.find(g => sample[0] && g.grp !== sample[0].grp);
+        if (other) sample.push(other);
+        const r = await mail.sendTo(sample, kind, base, admin.name, { ...opts, overrideTo: to });
+        return redirect(res, '/admin?msg=' + encodeURIComponent(r.failed ? `Test failed: ${r.errors[0]}` : `Sent ${r.sent} test email${r.sent === 1 ? '' : 's'} to ${to}.`));
+      }
+      const r = await mail.sendTo(recipients, kind, base, admin.name, opts);
+      const what = { invite: 'invitation', reminder: 'reminder', update: 'update' }[kind];
+      return redirect(res, '/admin?msg=' + encodeURIComponent(`Sent ${r.sent} ${what}${r.sent === 1 ? '' : 's'}.` + (r.failed ? ` ${r.failed} failed: ${r.errors[0]}` : '')));
+    }
+    mm = p.match(/^\/admin\/guests\/(\d+)\/invite$/);
+    if (mm && m === 'POST') {
+      const g = (await db.listGuests()).find(x => x.id === Number(mm[1]));
+      if (!g || !g.email) return redirect(res, '/admin?msg=' + encodeURIComponent('That guest has no email address.'));
+      if (!mail.enabled()) return redirect(res, `/admin?msg=` + encodeURIComponent('Email isn’t connected yet.'));
+      const r = await mail.sendTo([g], 'invite', base, admin.name);
+      return redirect(res, '/admin?msg=' + encodeURIComponent(r.sent ? `Invitation sent to ${g.email}.` : `Couldn’t send: ${r.errors[0]}`));
     }
     mm = p.match(/^\/admin\/guests\/(\d+)(\/delete|\/clear-rsvp)?$/);
     if (mm) {

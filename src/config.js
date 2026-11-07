@@ -9,7 +9,13 @@ module.exports = {
   databaseSsl: env.DATABASE_SSL === 'true',
   adminPassword: env.ADMIN_PASSWORD || '',
   sessionSecret: env.SESSION_SECRET || 'dev-only-secret-change-me',
-  contactEmail: env.CONTACT_EMAIL || '',
+  contactEmail: env.CONTACT_EMAIL || 'info@etstevent.com',
+
+  // Email (Resend). Without RESEND_API_KEY the site can preview emails but not send them.
+  resendApiKey: env.RESEND_API_KEY || '',
+  resendApiUrl: (env.RESEND_API_URL || 'https://api.resend.com').replace(/\/$/, ''),
+  mailFrom: env.MAIL_FROM || "ETST's Very Merry Soirée <rsvp@etstevent.com>",
+  mailReplyTo: env.MAIL_REPLY_TO || 'info@etstevent.com',
 
   event: {
     host: "ETST's Annual",
