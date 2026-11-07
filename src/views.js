@@ -32,7 +32,7 @@ function layout(title, body, { admin = false, bodyClass = '' } = {}) {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Great+Vibes&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/style.css?v=6">
+<link rel="stylesheet" href="/static/style.css?v=7">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='24' cy='40' r='12' fill='%237a1424'/><circle cx='42' cy='36' r='12' fill='%23a3203a'/><path d='M30 26 C34 14 44 10 52 12' stroke='%232f4a2a' stroke-width='5' fill='none'/></svg>">
 </head>
 <body class="${admin ? 'admin' : 'guest'} ${bodyClass}">
@@ -545,27 +545,48 @@ document.addEventListener('click',function(e){
 
 const addrList = (v) => (Array.isArray(v) ? v : [v]).filter(Boolean).join(', ');
 
-function adminInbox({ admin, emails = [], error = '', flash = '' }) {
-  const rows = emails.map(e => `<tr>
-    <td><a href="/admin/inbox/${attr(e.id)}"><strong>${esc(e.subject || '(no subject)')}</strong></a></td>
-    <td>${esc(addrList(e.from))}</td>
-    <td class="muted">${esc(addrList(e.to))}</td>
-    <td class="muted">${esc(fmtShortET(e.created_at))}</td></tr>`).join('');
+function inboxTabs(boxes, box) {
+  const tab = (key, label) => `<a class="tab ${box === key ? 'on' : ''}" href="/admin/inbox?box=${encodeURIComponent(key)}">${esc(label)}</a>`;
+  return `<nav class="tabs">${tab('all', 'All')}${boxes.map(b => tab(b, b)).join('')}${tab('sent', 'Sent')}</nav>`;
+}
+
+function fromSelect(boxes, selected) {
+  return `<select name="from">${boxes.map(b => `<option value="${attr(b)}" ${b === selected ? 'selected' : ''}>${esc(b)}</option>`).join('')}</select>`;
+}
+
+function adminInbox({ admin, boxes = [], box = 'all', emails = [], sent = null, error = '', flash = '' }) {
+  let table;
+  if (sent) {
+    const rows = sent.map(e => `<tr>
+      <td><a href="/admin/inbox/sent/${e.id}"><strong>${esc(e.subject || '(no subject)')}</strong></a></td>
+      <td>${esc(e.to_email)}</td><td class="muted">${esc(e.from_email)}</td>
+      <td class="muted">${esc(e.sent_by)}</td><td class="muted">${esc(fmtShortET(e.created_at))}</td></tr>`).join('');
+    table = `<thead><tr><th>Subject</th><th>To</th><th>From</th><th>Sent by</th><th>Sent</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="5" class="muted center">Nothing sent from the Inbox yet.</td></tr>'}</tbody>`;
+  } else {
+    const rows = emails.map(e => `<tr>
+      <td><a href="/admin/inbox/${attr(e.id)}"><strong>${esc(e.subject || '(no subject)')}</strong></a></td>
+      <td>${esc(addrList(e.from))}</td>
+      <td class="muted">${esc(addrList(e.to))}</td>
+      <td class="muted">${esc(fmtShortET(e.created_at))}</td></tr>`).join('');
+    table = `<thead><tr><th>Subject</th><th>From</th><th>To</th><th>Received</th></tr></thead>
+      <tbody>${rows || (error ? '' : '<tr><td colspan="4" class="muted center">No emails here yet.</td></tr>')}</tbody>`;
+  }
   return adminShell('Inbox', `
   <p><a href="/admin" class="link">← Back to dashboard</a></p>
   ${flash ? `<div class="flash">${esc(flash)}</div>` : ''}
   <section class="panel">
-    <div class="panel-head"><h1>Inbox</h1><a class="btn ghost small" href="/admin/inbox">Refresh</a></div>
-    <p class="muted">Emails sent to any @etstevent.com address (info@, rsvp@, or replies to invitations). Newest first.</p>
+    <div class="panel-head"><h1>Inbox</h1>
+      <div><a class="btn ghost small" href="/admin/inbox?box=${encodeURIComponent(box)}">Refresh</a>
+      ${boxes.length ? `<a class="btn small" href="/admin/inbox/new${boxes.includes(box) ? `?from=${encodeURIComponent(box)}` : ''}">New email</a>` : ''}</div></div>
+    ${boxes.length ? inboxTabs(boxes, box) : ''}
+    <p class="muted">${sent ? 'Emails written from this page (replies and new emails).' : 'Emails sent to info@, rsvp@ or any other @etstevent.com address, including guests replying to invitations. Newest first.'}</p>
     ${error ? `<div class="errors">${esc(error)}</div>` : ''}
-    <div class="table-wrap"><table class="guests">
-      <thead><tr><th>Subject</th><th>From</th><th>To</th><th>Received</th></tr></thead>
-      <tbody>${rows || (error ? '' : '<tr><td colspan="4" class="muted center">No emails yet.</td></tr>')}</tbody>
-    </table></div>
+    <div class="table-wrap"><table class="guests">${table}</table></div>
   </section>`, admin);
 }
 
-function adminInboxMessage({ admin, msg, error = '', draft = '' }) {
+function adminInboxMessage({ admin, msg, boxes = [], replyFrom = '', error = '', draft = '' }) {
   // Email HTML is shown inside a sandboxed frame so nothing in it can run scripts.
   const body = msg.html
     ? `<iframe class="mailframe" sandbox="" referrerpolicy="no-referrer" srcdoc="${attr(msg.html)}"></iframe>`
@@ -587,11 +608,45 @@ function adminInboxMessage({ admin, msg, error = '', draft = '' }) {
     <h2>Reply</h2>
     ${error ? `<div class="errors">${esc(error)}</div>` : ''}
     <form method="post" action="/admin/inbox/${attr(msg.id)}/reply" class="stack" onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').textContent='Sending…';">
+      <label class="field"><span>Reply from</span>${fromSelect(boxes, replyFrom)}</label>
       <textarea name="message" rows="6" required placeholder="Write your reply…">${esc(draft)}</textarea>
-      <p class="muted">Sent from info@etstevent.com and signed with your name. Counts toward the 100 emails/day limit.</p>
+      <p class="muted">Signed with your name. Counts toward the 100 emails/day limit.</p>
       <button class="btn">Send reply</button>
     </form>
   </section>`, admin);
 }
 
-module.exports = { adminInbox, adminInboxMessage, adminEmailPreview, home, rsvpForm, thanks, notFound, adminLogin, adminDashboard, adminEditGuest, esc, statusOf };
+function adminCompose({ admin, boxes, values = {}, error = '' }) {
+  return adminShell('New email', `
+  <p><a href="/admin/inbox" class="link">← Back to inbox</a></p>
+  <section class="panel">
+    <h1>New email</h1>
+    ${error ? `<div class="errors">${esc(error)}</div>` : ''}
+    <form method="post" action="/admin/inbox/new" class="stack" onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').textContent='Sending…';">
+      <label class="field"><span>From</span>${fromSelect(boxes, values.from)}</label>
+      <label class="field"><span>To</span><input type="email" name="to" value="${attr(values.to || '')}" required maxlength="120" placeholder="guest@example.com"></label>
+      <label class="field"><span>Subject</span><input name="subject" value="${attr(values.subject || '')}" required maxlength="150"></label>
+      <label class="field"><span>Message</span><textarea name="message" rows="10" required>${esc(values.message || '')}</textarea></label>
+      <p class="muted">Signed with your name. Replies come back to the address you send from and show up in this Inbox. Counts toward the 100 emails/day limit.</p>
+      <button class="btn">Send</button>
+    </form>
+  </section>`, admin);
+}
+
+function adminSentMessage({ admin, sm }) {
+  return adminShell(sm.subject || 'Sent email', `
+  <p><a href="/admin/inbox?box=sent" class="link">← Back to sent</a></p>
+  <section class="panel">
+    <h1>${esc(sm.subject || '(no subject)')}</h1>
+    <table class="kv">
+      <tr><th>From</th><td>${esc(sm.from_email)}</td></tr>
+      <tr><th>To</th><td>${esc(sm.to_email)}</td></tr>
+      <tr><th>Sent by</th><td>${esc(sm.sent_by)}</td></tr>
+      <tr><th>Sent</th><td>${esc(fmtShortET(sm.created_at))}</td></tr>
+    </table>
+    <pre class="mailtext">${esc(sm.body || '(no copy saved)')}</pre>
+    <p><a class="btn ghost small" href="/admin/inbox/new?from=${encodeURIComponent(sm.from_email)}&to=${encodeURIComponent(sm.to_email)}">Write again</a></p>
+  </section>`, admin);
+}
+
+module.exports = { adminInbox, adminInboxMessage, adminCompose, adminSentMessage, adminEmailPreview, home, rsvpForm, thanks, notFound, adminLogin, adminDashboard, adminEditGuest, esc, statusOf };

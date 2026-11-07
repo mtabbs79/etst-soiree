@@ -183,8 +183,11 @@ async function getReceived(id) {
 // Plain-address part of "Name <a@b.com>".
 const addressOf = (v) => { const m = String(v || '').match(/<([^>]+)>/); return (m ? m[1] : String(v || '')).trim(); };
 
-async function sendReply({ to, subject, text, inReplyTo }) {
-  const fromAddr = addressOf(config.mailReplyTo) || addressOf(config.mailFrom);
+// The two mailboxes admins read and write from: info@ (questions) and rsvp@ (invitations go out from it).
+const mailboxes = () => [...new Set([addressOf(config.mailReplyTo), addressOf(config.mailFrom)].filter(Boolean).map(a => a.toLowerCase()))];
+
+async function sendMessage({ from, to, subject, text, inReplyTo }) {
+  const fromAddr = mailboxes().includes(String(from || '').toLowerCase()) ? from.toLowerCase() : mailboxes()[0];
   const headers = inReplyTo ? { 'In-Reply-To': inReplyTo, References: inReplyTo } : undefined;
   const res = await fetch(`${config.resendApiUrl}/emails`, {
     method: 'POST',
@@ -193,7 +196,7 @@ async function sendReply({ to, subject, text, inReplyTo }) {
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.message || body.error || `Resend returned ${res.status}`);
-  return body;
+  return { ...body, from: fromAddr };
 }
 
-module.exports = { enabled, build, sendTo, DEADLINE_SHORT, listReceived, getReceived, sendReply, addressOf };
+module.exports = { enabled, build, sendTo, DEADLINE_SHORT, listReceived, getReceived, sendMessage, mailboxes, addressOf };

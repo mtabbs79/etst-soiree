@@ -54,6 +54,8 @@ const SCHEMA = [
     sent_by TEXT NOT NULL DEFAULT '',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
   )`,
+  `ALTER TABLE email_log ADD COLUMN IF NOT EXISTS from_email TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE email_log ADD COLUMN IF NOT EXISTS body TEXT NOT NULL DEFAULT ''`,
 ];
 
 async function init() {
@@ -145,16 +147,31 @@ async function clearRsvp(guestId) {
   return rows[0];
 }
 
-async function logEmail({ guest_id, to_email, kind, subject, status, error, provider_id, sent_by }) {
+async function logEmail({ guest_id, to_email, kind, subject, status, error, provider_id, sent_by, from_email, body }) {
   const { rows } = await pool.query(
-    `INSERT INTO email_log (guest_id, to_email, kind, subject, status, error, provider_id, sent_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
-    [guest_id || null, to_email, kind, subject, status, error || '', provider_id || '', sent_by || '']
+    `INSERT INTO email_log (guest_id, to_email, kind, subject, status, error, provider_id, sent_by, from_email, body)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+    [guest_id || null, to_email, kind, subject, status, error || '', provider_id || '', sent_by || '', from_email || '', body || '']
   );
   if (status === 'sent' && kind === 'invite' && guest_id) {
     await pool.query(`UPDATE guests SET invited_at = now(), invite_count = invite_count + 1 WHERE id = $1 RETURNING id`, [guest_id]);
   }
   return rows[0];
+}
+
+// Messages admins wrote from the Inbox (replies and new emails), newest first.
+async function sentMessages(limit = 100) {
+  const { rows } = await pool.query(
+    `SELECT id, to_email, from_email, subject, body, sent_by, created_at FROM email_log
+     WHERE kind IN ('reply','message') AND status = 'sent' ORDER BY created_at DESC LIMIT $1`, [limit]);
+  return rows;
+}
+
+async function sentMessage(id) {
+  const { rows } = await pool.query(
+    `SELECT id, to_email, from_email, subject, body, sent_by, created_at FROM email_log
+     WHERE id = $1 AND kind IN ('reply','message')`, [id]);
+  return rows[0] || null;
 }
 
 async function recentEmails(limit = 15) {
@@ -175,4 +192,4 @@ async function sentToday() {
   return rows[0] ? rows[0].n : 0;
 }
 
-module.exports = { guestByEmail, logEmail, recentEmails, sentToday, pool, init, guestByToken, listGuests, addGuest, updateGuest, emailExists, deleteGuest, saveRsvp, clearRsvp };
+module.exports = { sentMessages, sentMessage, guestByEmail, logEmail, recentEmails, sentToday, pool, init, guestByToken, listGuests, addGuest, updateGuest, emailExists, deleteGuest, saveRsvp, clearRsvp };

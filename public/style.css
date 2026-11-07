@@ -216,3 +216,7 @@ form.lookup { max-width: 440px; margin: 8px auto 0; }
 .mailframe { width: 100%; min-height: 520px; border: 1px solid #e6d9c0; border-radius: 8px; background: #fff; margin-top: 12px; }
 .mailtext { white-space: pre-wrap; font-family: inherit; font-size: 15px; background: #fbf7ef; border: 1px solid #e6d9c0; border-radius: 8px; padding: 12px; margin-top: 12px; }
 .admin-top nav a.link { margin-right: 12px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
+.tabs .tab { padding: 6px 12px; border: 1px solid #e6d9c0; border-radius: 999px; font-size: 13px; color: var(--burgundy); text-decoration: none; }
+.tabs .tab.on { background: var(--burgundy); color: #f6e7c8; border-color: var(--burgundy); }
+.panel-head .btn.small { margin-left: 6px; }
