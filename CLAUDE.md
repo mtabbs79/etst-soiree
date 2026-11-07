@@ -25,16 +25,17 @@ RSVP site for ETST's Annual "A Very Merry Soirée", Fri Dec 11, 2026, 7–11 PM,
   MAIL_REPLY_TO / CONTACT_EMAIL (info@etstevent.com), optional BASE_URL (set to https://etstevent.com once the custom domain works).
 - Email: Resend, domain etstevent.com (DNS at GoDaddy). The free plan allows 100 emails/day.
 
-## Status as of Nov 6, 2026 (evening)
-- Live at https://etst-soiree.onrender.com. The database is connected.
-- The commit live on Render may be OLDER than this repo copy: check that the live site has the admin "Email guests" panel.
+## Status as of Nov 7, 2026
+- Live at https://etst-soiree.onrender.com. The database is connected. Render auto-deploys `main`; the live commit matched the repo on Nov 7.
+- Resend: etstevent.com is fully VERIFIED (sending enabled) as of Nov 7.
+- Import now rejects rows with a blank location and treats anything mentioning Florida/FL/Miami as Florida. The bulk send asks for confirmation.
 - RESEND_API_KEY, MAIL_FROM, MAIL_REPLY_TO and CONTACT_EMAIL are already set in Render. Never commit keys to the repo.
 - Resend domain etstevent.com: DKIM and the rsend CNAME are verified. The SPF MX/TXT records on the `send` subdomain were
   still pending, which is normal DNS propagation. Re-check in Resend. Sending only works once the domain is fully verified.
 - No real guest list has been imported yet.
 
 ## Open items (roughly in order)
-1. Confirm Resend shows etstevent.com fully verified.
+1. ~~Confirm Resend shows etstevent.com fully verified.~~ Done Nov 7.
 2. Send test emails from /admin → Email guests → Preview → "Send a test to yourself". The test sends one Florida and one travel version.
 3. Import the real guest list (admin page, paste from Excel: first, last, email, location).
 4. Send travel invitations first (deadline Nov 16), then Florida (deadline Dec 1).

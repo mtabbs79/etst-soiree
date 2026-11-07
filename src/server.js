@@ -111,33 +111,40 @@ const isClosed = (g) => Date.now() > config.deadlines[g.grp];
 
 // ---------- guest import ----------
 
+// Returns 'florida', 'travel', or null when the location is blank.
+// Anything mentioning Florida/FL (e.g. "FL", "Miami, FL", "Florida") is a Florida invite.
 function normalizeGroup(v) {
   const s = String(v || '').trim().toLowerCase();
-  return s === 'fl' || s === 'florida' || s === 'local' || s === 'in state' ? 'florida' : 'travel';
+  if (!s) return null;
+  if (/florida|\bfla?\b|\blocal\b|\bin[- ]?state\b|\bmiami\b/.test(s)) return 'florida';
+  return 'travel';
 }
 
 async function importCsv(text) {
   const rows = csv.parse(text);
-  const report = { added: 0, skipped: [], errors: [] };
+  const report = { added: 0, travel: 0, florida: 0, skipped: [], errors: [] };
   rows.forEach((r, i) => { r._line = i + 1; });
   if (rows.length && /first/i.test(rows[0][0] || '') && /(last|email|name)/i.test(rows[0].join(' '))) rows.shift();
   for (const r of rows) {
     const [first, last, email, location] = r.map(v => (v || '').trim());
     if (!first) { report.errors.push(`Line ${r._line}: missing first name`); continue; }
     if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { report.errors.push(`Line ${r._line}: “${email}” doesn’t look like an email`); continue; }
+    const grp = normalizeGroup(location);
+    if (!grp) { report.errors.push(`Line ${r._line}: ${first} ${last || ''} has no location (enter Florida/FL or Travel)`); continue; }
     if (email && await db.emailExists(email)) { report.skipped.push(`${first} ${last} (${email}) is already on the list`); continue; }
     await db.addGuest({
       first_name: first.slice(0, 60), last_name: (last || '').slice(0, 60), email: (email || '').slice(0, 120),
-      grp: normalizeGroup(location), plus_one_allowed: true,
+      grp, plus_one_allowed: true,
     });
     report.added++;
+    report[grp]++;
   }
   return report;
 }
 
 function importReportHtml(rep) {
   const e = views.esc;
-  return `<div class="flash">Imported ${rep.added} guest${rep.added === 1 ? '' : 's'}.${rep.skipped.length ? ` Skipped ${rep.skipped.length}.` : ''}${rep.errors.length ? ` ${rep.errors.length} line(s) had problems.` : ''}
+  return `<div class="flash">Imported ${rep.added} guest${rep.added === 1 ? '' : 's'}${rep.added ? ` (${rep.travel} travel, ${rep.florida} Florida)` : ''}.${rep.skipped.length ? ` Skipped ${rep.skipped.length}.` : ''}${rep.errors.length ? ` ${rep.errors.length} line(s) had problems.` : ''}
   ${rep.skipped.length || rep.errors.length ? `<details><summary>Details</summary><ul>${[...rep.errors, ...rep.skipped].map(x => `<li>${e(x)}</li>`).join('')}</ul></details>` : ''}</div>`;
 }
 

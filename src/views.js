@@ -358,7 +358,7 @@ function adminDashboard({ admin, guests, baseUrl, flash, importReport, email = {
       <h2>Import guest list</h2>
       <p class="muted">Paste from Excel or a CSV. Columns, in this order, with or without a header row:</p>
       <code class="cols">first name, last name, email, location</code>
-      <p class="muted small">Location: <em>Florida</em> or <em>FL</em> = Florida invite; anything else (e.g. <em>Travel</em>, <em>GA</em>, <em>Texas</em>) = travel invite. Every guest is invited with a plus one. Emails already on the list are skipped.</p>
+      <p class="muted small">Location: anything mentioning <em>Florida</em>, <em>FL</em> or <em>Miami</em> = Florida invite; anything else (e.g. <em>Travel</em>, <em>GA</em>, <em>Texas</em>) = travel invite. Rows with a blank location are not imported. Every guest is invited with a plus one. Emails already on the list are skipped.</p>
       <form method="post" action="/admin/import" class="stack">
         <textarea name="csv" rows="7" placeholder="Jane,Smith,jane@example.com,Florida&#10;Tom,Lee,tom@example.com,Texas"></textarea>
         <button class="btn">Import</button>
@@ -432,7 +432,7 @@ function adminEmailPreview({ admin, kind, form, recipients, skipped, sample, ena
         <button class="btn ghost small" ${enabled && recipients.length ? '' : 'disabled'}>Send test</button>
       </form>
       <hr>
-      <form method="post" action="/admin/email/send" onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').textContent='Sending…';">
+      <form method="post" action="/admin/email/send" onsubmit="if(!confirm('Send this email to ${recipients.length} real guest${recipients.length === 1 ? '' : 's'} now? This can’t be undone.'))return false;this.querySelector('button').disabled=true;this.querySelector('button').textContent='Sending…';">
         ${hidden}
         <button class="btn" ${enabled && recipients.length ? '' : 'disabled'}>Send to ${recipients.length} guest${recipients.length === 1 ? '' : 's'}</button>
       </form>
