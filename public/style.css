@@ -211,3 +211,8 @@ body.admin .btn.small { width: auto; }
 
 /* Home page lookup */
 form.lookup { max-width: 440px; margin: 8px auto 0; }
+
+/* Admin inbox */
+.mailframe { width: 100%; min-height: 520px; border: 1px solid #e6d9c0; border-radius: 8px; background: #fff; margin-top: 12px; }
+.mailtext { white-space: pre-wrap; font-family: inherit; font-size: 15px; background: #fbf7ef; border: 1px solid #e6d9c0; border-radius: 8px; padding: 12px; margin-top: 12px; }
+.admin-top nav a.link { margin-right: 12px; }

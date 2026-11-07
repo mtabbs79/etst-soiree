@@ -323,6 +323,38 @@ async function handle(req, res) {
       const what = { invite: 'invitation', reminder: 'reminder', update: 'update' }[kind];
       return redirect(res, '/admin?msg=' + encodeURIComponent(`Sent ${r.sent} ${what}${r.sent === 1 ? '' : 's'}.` + (r.failed ? ` ${r.failed} failed: ${r.errors[0]}` : '')));
     }
+    // Inbox: emails guests send to info@ / rsvp@etstevent.com (received by Resend).
+    if (p === '/admin/inbox' && m === 'GET') {
+      if (!mail.enabled()) return send(res, 200, views.adminInbox({ admin, error: 'Email isn’t connected yet.' }));
+      try {
+        return send(res, 200, views.adminInbox({ admin, emails: await mail.listReceived(), flash: url.searchParams.get('msg') || '' }), { 'Cache-Control': 'no-store' });
+      } catch (err) {
+        console.error('Inbox list failed:', err.message);
+        return send(res, 200, views.adminInbox({ admin, error: `Couldn’t load the inbox: ${err.message}` }));
+      }
+    }
+    mm = p.match(/^\/admin\/inbox\/([A-Za-z0-9_-]{1,80})(\/reply)?$/);
+    if (mm && mail.enabled()) {
+      let msg;
+      try { msg = await mail.getReceived(mm[1]); }
+      catch (err) { return redirect(res, '/admin/inbox?msg=' + encodeURIComponent(`Couldn’t open that email: ${err.message}`)); }
+      if (m === 'GET' && !mm[2]) return send(res, 200, views.adminInboxMessage({ admin, msg }), { 'Cache-Control': 'no-store' });
+      if (m === 'POST' && mm[2]) {
+        const b = await readBody(req);
+        const text = String(b.message || '').trim().slice(0, 10000);
+        const to = mail.addressOf(msg.reply_to && msg.reply_to[0] || msg.from);
+        if (!text) return send(res, 422, views.adminInboxMessage({ admin, msg, error: 'Write a reply first.' }));
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) return send(res, 422, views.adminInboxMessage({ admin, msg, error: 'This email has no address to reply to.' }));
+        const subject = /^re:/i.test(msg.subject || '') ? msg.subject : `Re: ${msg.subject || ''}`.trim();
+        try {
+          await mail.sendReply({ to, subject, text: `${text}\n\n— ${admin.name}, ETST`, inReplyTo: msg.message_id });
+          await db.logEmail({ guest_id: null, to_email: to, kind: 'reply', subject, status: 'sent', sent_by: admin.name });
+        } catch (err) {
+          return send(res, 502, views.adminInboxMessage({ admin, msg, error: `Couldn’t send: ${err.message}`, draft: text }));
+        }
+        return redirect(res, '/admin/inbox?msg=' + encodeURIComponent(`Reply sent to ${to}.`));
+      }
+    }
     mm = p.match(/^\/admin\/guests\/(\d+)\/invite$/);
     if (mm && m === 'POST') {
       const g = (await db.listGuests()).find(x => x.id === Number(mm[1]));

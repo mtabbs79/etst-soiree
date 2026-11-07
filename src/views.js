@@ -32,7 +32,7 @@ function layout(title, body, { admin = false, bodyClass = '' } = {}) {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Great+Vibes&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/style.css?v=5">
+<link rel="stylesheet" href="/static/style.css?v=6">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='24' cy='40' r='12' fill='%237a1424'/><circle cx='42' cy='36' r='12' fill='%23a3203a'/><path d='M30 26 C34 14 44 10 52 12' stroke='%232f4a2a' stroke-width='5' fill='none'/></svg>">
 </head>
 <body class="${admin ? 'admin' : 'guest'} ${bodyClass}">
@@ -251,7 +251,7 @@ function adminShell(title, inner, admin) {
   return layout(`${title} · Soirée admin`, `
   <header class="admin-top">
     <div><span class="script-mini">A Very Merry Soirée</span><span class="admin-label">RSVP admin</span></div>
-    ${admin ? `<nav><span class="who">Signed in as ${esc(admin.name)}</span><form method="post" action="/admin/logout"><button class="link">Sign out</button></form></nav>` : ''}
+    ${admin ? `<nav><a class="link" href="/admin">Guests</a> <a class="link" href="/admin/inbox">Inbox</a> <span class="who">Signed in as ${esc(admin.name)}</span><form method="post" action="/admin/logout"><button class="link">Sign out</button></form></nav>` : ''}
   </header>
   <main class="admin-main">${inner}</main>`, { admin: true });
 }
@@ -541,4 +541,57 @@ document.addEventListener('click',function(e){
 </script>`;
 }
 
-module.exports = { adminEmailPreview, home, rsvpForm, thanks, notFound, adminLogin, adminDashboard, adminEditGuest, esc, statusOf };
+// ---------- Inbox ----------
+
+const addrList = (v) => (Array.isArray(v) ? v : [v]).filter(Boolean).join(', ');
+
+function adminInbox({ admin, emails = [], error = '', flash = '' }) {
+  const rows = emails.map(e => `<tr>
+    <td><a href="/admin/inbox/${attr(e.id)}"><strong>${esc(e.subject || '(no subject)')}</strong></a></td>
+    <td>${esc(addrList(e.from))}</td>
+    <td class="muted">${esc(addrList(e.to))}</td>
+    <td class="muted">${esc(fmtShortET(e.created_at))}</td></tr>`).join('');
+  return adminShell('Inbox', `
+  <p><a href="/admin" class="link">← Back to dashboard</a></p>
+  ${flash ? `<div class="flash">${esc(flash)}</div>` : ''}
+  <section class="panel">
+    <div class="panel-head"><h1>Inbox</h1><a class="btn ghost small" href="/admin/inbox">Refresh</a></div>
+    <p class="muted">Emails sent to any @etstevent.com address (info@, rsvp@, or replies to invitations). Newest first.</p>
+    ${error ? `<div class="errors">${esc(error)}</div>` : ''}
+    <div class="table-wrap"><table class="guests">
+      <thead><tr><th>Subject</th><th>From</th><th>To</th><th>Received</th></tr></thead>
+      <tbody>${rows || (error ? '' : '<tr><td colspan="4" class="muted center">No emails yet.</td></tr>')}</tbody>
+    </table></div>
+  </section>`, admin);
+}
+
+function adminInboxMessage({ admin, msg, error = '', draft = '' }) {
+  // Email HTML is shown inside a sandboxed frame so nothing in it can run scripts.
+  const body = msg.html
+    ? `<iframe class="mailframe" sandbox="" referrerpolicy="no-referrer" srcdoc="${attr(msg.html)}"></iframe>`
+    : `<pre class="mailtext">${esc(msg.text || '(empty message)')}</pre>`;
+  return adminShell(msg.subject || 'Email', `
+  <p><a href="/admin/inbox" class="link">← Back to inbox</a></p>
+  <section class="panel">
+    <h1>${esc(msg.subject || '(no subject)')}</h1>
+    <table class="kv">
+      <tr><th>From</th><td>${esc(addrList(msg.from))}</td></tr>
+      <tr><th>To</th><td>${esc(addrList(msg.to))}</td></tr>
+      ${msg.cc && msg.cc.length ? `<tr><th>Cc</th><td>${esc(addrList(msg.cc))}</td></tr>` : ''}
+      <tr><th>Received</th><td>${esc(fmtShortET(msg.created_at))}</td></tr>
+      ${msg.attachments && msg.attachments.length ? `<tr><th>Attachments</th><td>${esc(msg.attachments.map(a => a.filename).join(', '))} <span class="muted">(open in Resend to download)</span></td></tr>` : ''}
+    </table>
+    ${body}
+  </section>
+  <section class="panel">
+    <h2>Reply</h2>
+    ${error ? `<div class="errors">${esc(error)}</div>` : ''}
+    <form method="post" action="/admin/inbox/${attr(msg.id)}/reply" class="stack" onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').textContent='Sending…';">
+      <textarea name="message" rows="6" required placeholder="Write your reply…">${esc(draft)}</textarea>
+      <p class="muted">Sent from info@etstevent.com and signed with your name. Counts toward the 100 emails/day limit.</p>
+      <button class="btn">Send reply</button>
+    </form>
+  </section>`, admin);
+}
+
+module.exports = { adminInbox, adminInboxMessage, adminEmailPreview, home, rsvpForm, thanks, notFound, adminLogin, adminDashboard, adminEditGuest, esc, statusOf };

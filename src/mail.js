@@ -162,4 +162,38 @@ async function sendTo(guests, kind, base, sentBy, opts = {}) {
   return out;
 }
 
-module.exports = { enabled, build, sendTo, DEADLINE_SHORT };
+// ---------- inbox (emails received at @etstevent.com through Resend) ----------
+
+async function resendGet(path) {
+  const res = await fetch(`${config.resendApiUrl}${path}`, { headers: { Authorization: `Bearer ${config.resendApiKey}` } });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.message || body.error || `Resend returned ${res.status}`);
+  return body;
+}
+
+async function listReceived(limit = 50) {
+  const body = await resendGet(`/emails/receiving?limit=${limit}`);
+  return Array.isArray(body.data) ? body.data : [];
+}
+
+async function getReceived(id) {
+  return resendGet(`/emails/receiving/${encodeURIComponent(id)}`);
+}
+
+// Plain-address part of "Name <a@b.com>".
+const addressOf = (v) => { const m = String(v || '').match(/<([^>]+)>/); return (m ? m[1] : String(v || '')).trim(); };
+
+async function sendReply({ to, subject, text, inReplyTo }) {
+  const fromAddr = addressOf(config.mailReplyTo) || addressOf(config.mailFrom);
+  const headers = inReplyTo ? { 'In-Reply-To': inReplyTo, References: inReplyTo } : undefined;
+  const res = await fetch(`${config.resendApiUrl}/emails`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${config.resendApiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: `ETST's Very Merry Soirée <${fromAddr}>`, to: [to], reply_to: fromAddr, subject, text, headers }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.message || body.error || `Resend returned ${res.status}`);
+  return body;
+}
+
+module.exports = { enabled, build, sendTo, DEADLINE_SHORT, listReceived, getReceived, sendReply, addressOf };

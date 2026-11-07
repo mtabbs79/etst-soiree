@@ -25,6 +25,9 @@ RSVP site for ETST's Annual "A Very Merry Soirée", Fri Dec 11, 2026, 7–11 PM,
 - Env vars: ADMIN_PASSWORD, SESSION_SECRET, DATABASE_URL, RESEND_API_KEY, MAIL_FROM (rsvp@etstevent.com),
   MAIL_REPLY_TO / CONTACT_EMAIL (info@etstevent.com), optional BASE_URL (set to https://etstevent.com once the custom domain works).
 - Email: Resend, domain etstevent.com (DNS at GoDaddy). The free plan allows 100 emails/day.
+- Incoming mail: Resend receiving is ENABLED on etstevent.com (Nov 7). Needs a root MX record at GoDaddy: @ → receive.forge.rmta.net, priority 9.
+  Mail to any @etstevent.com address shows in /admin/inbox (src/mail.js listReceived/getReceived via GET /emails/receiving),
+  with a reply form that sends from info@. Email HTML is shown in a sandboxed iframe. No ImprovMX/forwarding is used.
 
 ## Status as of Nov 7, 2026
 - Live at https://etst-soiree.onrender.com. The database is connected. Render auto-deploys `main`; the live commit matched the repo on Nov 7.
