@@ -68,7 +68,7 @@ function readRsvp(body, g) {
   const isTravel = g.grp === 'travel';
   const r = {
     attending: body.attending === 'yes' ? true : body.attending === 'no' ? false : null,
-    plus_one: g.plus_one_allowed && body.plus_one === 'yes',
+    plus_one: body.plus_one === 'yes',
     plus_one_name: clean(body.plus_one_name, 120),
     after_party: ['yes', 'no', 'maybe'].includes(body.after_party) ? body.after_party : '',
     dietary: clean(body.dietary, 200),
@@ -84,7 +84,7 @@ function readRsvp(body, g) {
   const errors = [];
   if (r.attending === null) errors.push('Let us know whether you can attend.');
   if (r.attending) {
-    if (g.plus_one_allowed && !['yes', 'no'].includes(body.plus_one)) errors.push('Let us know whether you’re bringing a plus one.');
+    if (!['yes', 'no'].includes(body.plus_one)) errors.push('Let us know whether you’re bringing a plus one.');
     if (r.plus_one && !r.plus_one_name) errors.push('Add your guest’s name.');
     if (!r.after_party) errors.push('Let us know about the after party.');
     if (isTravel) {
@@ -121,13 +121,13 @@ async function importCsv(text) {
   rows.forEach((r, i) => { r._line = i + 1; });
   if (rows.length && /first/i.test(rows[0][0] || '') && /(last|email|name)/i.test(rows[0].join(' '))) rows.shift();
   for (const r of rows) {
-    const [first, last, email, location, plus] = r.map(v => (v || '').trim());
+    const [first, last, email, location] = r.map(v => (v || '').trim());
     if (!first) { report.errors.push(`Line ${r._line}: missing first name`); continue; }
     if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { report.errors.push(`Line ${r._line}: “${email}” doesn’t look like an email`); continue; }
     if (email && await db.emailExists(email)) { report.skipped.push(`${first} ${last} (${email}) is already on the list`); continue; }
     await db.addGuest({
       first_name: first.slice(0, 60), last_name: (last || '').slice(0, 60), email: (email || '').slice(0, 120),
-      grp: normalizeGroup(location), plus_one_allowed: plus === undefined || plus === '' ? true : yes(plus),
+      grp: normalizeGroup(location), plus_one_allowed: true,
     });
     report.added++;
   }
@@ -240,7 +240,7 @@ async function handle(req, res) {
       const first = clean(b.first_name, 60), email = clean(b.email, 120);
       if (!first) return redirect(res, '/admin?msg=' + encodeURIComponent('First name is required.'));
       if (email && await db.emailExists(email)) return redirect(res, '/admin?msg=' + encodeURIComponent(`${email} is already on the guest list.`));
-      await db.addGuest({ first_name: first, last_name: clean(b.last_name, 60), email, grp: b.grp === 'travel' ? 'travel' : 'florida', plus_one_allowed: b.plus_one_allowed !== 'no' });
+      await db.addGuest({ first_name: first, last_name: clean(b.last_name, 60), email, grp: b.grp === 'travel' ? 'travel' : 'florida', plus_one_allowed: true });
       return redirect(res, '/admin?msg=' + encodeURIComponent(`Added ${first}.`));
     }
     mm = p.match(/^\/admin\/guests\/(\d+)(\/delete|\/clear-rsvp)?$/);
@@ -258,7 +258,7 @@ async function handle(req, res) {
         if (!first) return send(res, 422, views.adminEditGuest({ admin, g, baseUrl: base, error: 'First name is required.' }));
         if (email && email.toLowerCase() !== (g.email || '').toLowerCase() && await db.emailExists(email))
           return send(res, 422, views.adminEditGuest({ admin, g, baseUrl: base, error: `${email} is already on the guest list.` }));
-        await db.updateGuest(id, { first_name: first, last_name: clean(b.last_name, 60), email, grp: b.grp === 'travel' ? 'travel' : 'florida', plus_one_allowed: b.plus_one_allowed !== 'no' });
+        await db.updateGuest(id, { first_name: first, last_name: clean(b.last_name, 60), email, grp: b.grp === 'travel' ? 'travel' : 'florida', plus_one_allowed: true });
         return redirect(res, '/admin?msg=' + encodeURIComponent(`Saved ${first}.`));
       }
     }

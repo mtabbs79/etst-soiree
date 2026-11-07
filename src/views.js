@@ -32,7 +32,7 @@ function layout(title, body, { admin = false, bodyClass = '' } = {}) {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Great+Vibes&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/style.css?v=3">
+<link rel="stylesheet" href="/static/style.css?v=4">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='24' cy='40' r='12' fill='%237a1424'/><circle cx='42' cy='36' r='12' fill='%23a3203a'/><path d='M30 26 C34 14 44 10 52 12' stroke='%232f4a2a' stroke-width='5' fill='none'/></svg>">
 </head>
 <body class="${admin ? 'admin' : 'guest'} ${bodyClass}">
@@ -43,35 +43,22 @@ ${body}
 
 function card(inner) {
   return `<main class="frame"><div class="card">
-  <img class="garland" src="/static/garland-top.jpg" alt="" width="1024" height="291">
-  <div class="card-body">${inner}</div>
+  <img class="hero" src="/static/hero.jpg" width="1024" height="1057"
+    alt="Please join us for ETST's Annual A Very Merry Soirée. Friday, December 11, 2026, 7:00 to 11:00 PM. Miami Springs Country Club, 650 Curtiss Pkwy, Miami Springs, FL 33166. After party to follow.">
+  <div class="paper"><div class="paper-in">${inner}</div></div>
+  <img class="footer-art" src="/static/footer.jpg" width="1024" height="461" alt="Leave the kids at home and join us for a night out! Attire: cocktail.">
 </div></main>`;
 }
 
 function eventHeader() {
-  return `
-  <p class="kicker">Please join us for</p>
-  <p class="host">${esc(E.host)}</p>
-  <h1 class="script">${esc(E.title)}</h1>
-  <div class="accent-row"><span></span><h2 class="accent">${esc(E.titleAccent)}</h2><span></span></div>
-  <p class="date">${esc(E.dateLong)}</p>
-  <p class="time">${esc(E.time)}</p>
-  <div class="bow-divider" aria-hidden="true"><span></span>${bowSvg()}<span></span></div>
-  <p class="venue">${esc(E.venue)}</p>
-  <p class="address"><a href="${attr(E.mapUrl)}" target="_blank" rel="noopener">${esc(E.address)}</a></p>
-  <p class="after">${esc(E.afterParty)}</p>`;
+  return `<p class="maplink"><a href="${attr(E.mapUrl)}" target="_blank" rel="noopener">Map &amp; directions</a></p>`;
 }
 
 function bowSvg() {
   return `<svg width="44" height="22" viewBox="0 0 44 22" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M22 11 C14 2 4 2 4 8 C4 14 14 14 22 11 Z"/><path d="M22 11 C30 2 40 2 40 8 C40 14 30 14 22 11 Z"/><path d="M22 11 L15 21 M22 11 L29 21"/><circle cx="22" cy="11" r="2.2" fill="currentColor"/></svg>`;
 }
 
-function footerNotes() {
-  return `
-  <p class="tagline">“${esc(E.tagline)}”</p>
-  <div class="rule"></div>
-  <p class="attire">Attire: ${esc(E.attire)}</p>`;
-}
+function footerNotes() { return ''; }
 
 function contactLine() {
   return config.contactEmail
@@ -115,10 +102,9 @@ function rsvpForm(g, { errors = [], values = null, closed = false, adminView = f
     ? `<div class="errors" role="alert"><strong>Please check a few things:</strong><ul>${errors.map(e => `<li>${esc(e)}</li>`).join('')}</ul></div>`
     : '';
 
-  const deadlineBox = `<div class="deadline ${isTravel ? 'travel' : ''}">
-    <strong>${esc(config.deadlineText[g.grp])}</strong>
-    <span>${esc(timeLeft(deadline))} · closes ${esc(fmtET(deadline))}</span>
-  </div>`;
+  const deadlineBox = `<div class="deadline ${isTravel ? 'travel' : ''}"><strong>${isTravel
+      ? 'Due to travel arrangements,<br>please RSVP before November 13' : 'RSVP by December 1, 2026'}</strong></div>
+  <p class="countdown">${esc(timeLeft(deadline))} · closes ${esc(fmtET(deadline))}</p>`;
 
   const adminBar = adminView ? `<div class="admin-bar">Admin view: you can edit this RSVP even after the deadline. <a href="/admin">Back to dashboard</a></div>` : '';
 
@@ -132,7 +118,7 @@ function rsvpForm(g, { errors = [], values = null, closed = false, adminView = f
     ${footerNotes()}`));
   }
 
-  const plusOneBlock = g.plus_one_allowed ? `
+  const plusOneBlock = true ? `
     <fieldset data-show="attending=yes">
       <legend>Will you bring a plus one?</legend>
       <div class="choices">${radio('plus_one', 'yes', 'Yes, I’ll bring a guest', v.plus_one === 'yes')}${radio('plus_one', 'no', 'Just me', v.plus_one === 'no')}</div>
@@ -146,7 +132,7 @@ function rsvpForm(g, { errors = [], values = null, closed = false, adminView = f
       <p class="hint">ETST is arranging airfare and hotel. Enter names <strong>exactly as they appear on the photo ID</strong> you’ll fly with.</p>
       <label class="field"><span>Your legal name (as on ID)</span>
         <input name="legal_name" value="${attr(v.legal_name)}" maxlength="120" autocomplete="name"></label>
-      ${g.plus_one_allowed ? `<label class="field" data-show="plus_one=yes"><span>Guest’s legal name (as on ID)</span>
+      ${true ? `<label class="field" data-show="plus_one=yes"><span>Guest’s legal name (as on ID)</span>
         <input name="plus_one_legal_name" value="${attr(v.plus_one_legal_name)}" maxlength="120" autocomplete="off"></label>` : ''}
       <label class="field"><span>Home airport (city or code)</span>
         <input name="home_airport" value="${attr(v.home_airport)}" maxlength="60" placeholder="e.g. ATL or Atlanta"></label>
@@ -165,7 +151,7 @@ function rsvpForm(g, { errors = [], values = null, closed = false, adminView = f
   return layout(`RSVP · ${E.title} ${E.titleAccent}`, card(`
   ${adminBar}
   ${eventHeader()}
-  <div class="banner"><strong>${g.plus_one_allowed ? 'You and your plus one' : 'You'}</strong><em>are cordially invited</em></div>
+  <div class="banner"><strong>You and your plus one</strong><em>are cordially invited</em></div>
   ${deadlineBox}
   <div class="greeting"><p class="script small-script">Dear ${name},</p></div>
   ${status}
@@ -320,7 +306,7 @@ function adminDashboard({ admin, guests, baseUrl, flash, importReport }) {
       <td><strong>${esc(g.first_name)} ${esc(g.last_name)}</strong><div class="muted">${esc(g.email)}</div></td>
       <td><span class="pill ${g.grp}">${g.grp === 'travel' ? 'Travel' : 'Florida'}</span></td>
       <td><span class="pill st-${st}">${st === 'yes' ? 'Attending' : st === 'no' ? 'Declined' : 'No reply'}</span>${g.responded ? `<div class="muted">${esc(fmtShortET(g.updated_at))}${g.updated_by !== 'guest' ? ' · by ' + esc(g.updated_by) : ''}</div>` : ''}</td>
-      <td>${g.responded && g.attending && g.plus_one ? esc(g.plus_one_name) : g.plus_one_allowed ? '<span class="muted">—</span>' : '<span class="muted">Not allowed</span>'}</td>
+      <td>${g.responded && g.attending && g.plus_one ? esc(g.plus_one_name) : '<span class="muted">—</span>'}</td>
       <td class="muted">${g.responded && g.attending ? esc([g.after_party ? 'After party: ' + g.after_party : '', g.dietary ? 'Diet: ' + g.dietary : ''].filter(Boolean).join(' · ')) : ''}</td>
       <td class="actions">
         <button type="button" class="link copy" data-link="${attr(link)}">Copy link</button>
@@ -361,17 +347,17 @@ function adminDashboard({ admin, guests, baseUrl, flash, importReport }) {
     <section class="panel">
       <h2>Add a guest</h2>
       <form method="post" action="/admin/guests" class="stack">
-        ${guestFields({ grp: 'florida', plus_one_allowed: true })}
+        ${guestFields({ grp: 'florida' })}
         <button class="btn">Add guest</button>
       </form>
     </section>
     <section class="panel">
       <h2>Import guest list</h2>
       <p class="muted">Paste from Excel or a CSV. Columns, in this order, with or without a header row:</p>
-      <code class="cols">first name, last name, email, location, plus one</code>
-      <p class="muted small">Location: <em>Florida</em> or <em>FL</em> = Florida invite; anything else (e.g. <em>Travel</em>, <em>GA</em>, <em>Texas</em>) = travel invite. Plus one: yes/no (blank = yes). Emails already on the list are skipped.</p>
+      <code class="cols">first name, last name, email, location</code>
+      <p class="muted small">Location: <em>Florida</em> or <em>FL</em> = Florida invite; anything else (e.g. <em>Travel</em>, <em>GA</em>, <em>Texas</em>) = travel invite. Every guest is invited with a plus one. Emails already on the list are skipped.</p>
       <form method="post" action="/admin/import" class="stack">
-        <textarea name="csv" rows="7" placeholder="Jane,Smith,jane@example.com,Florida,yes&#10;Tom,Lee,tom@example.com,Texas,yes"></textarea>
+        <textarea name="csv" rows="7" placeholder="Jane,Smith,jane@example.com,Florida&#10;Tom,Lee,tom@example.com,Texas"></textarea>
         <button class="btn">Import</button>
       </form>
     </section>
@@ -386,15 +372,12 @@ function guestFields(g) {
     <label class="field"><span>Last name</span><input name="last_name" value="${attr(g.last_name)}" maxlength="60"></label>
   </div>
   <label class="field"><span>Email</span><input type="email" name="email" value="${attr(g.email)}" maxlength="120"></label>
-  <div class="two">
+  <div>
     <label class="field"><span>Invitation</span><select name="grp">
       <option value="florida" ${g.grp === 'florida' ? 'selected' : ''}>Florida (RSVP Dec 1)</option>
       <option value="travel" ${g.grp === 'travel' ? 'selected' : ''}>Out of state, travel (RSVP Nov 12)</option>
     </select></label>
-    <label class="field"><span>Plus one</span><select name="plus_one_allowed">
-      <option value="yes" ${g.plus_one_allowed ? 'selected' : ''}>Allowed</option>
-      <option value="no" ${!g.plus_one_allowed ? 'selected' : ''}>Not allowed</option>
-    </select></label>
+
   </div>`;
 }
 
