@@ -32,7 +32,7 @@ function layout(title, body, { admin = false, bodyClass = '' } = {}) {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Great+Vibes&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/style.css?v=7">
+<link rel="stylesheet" href="/static/style.css?v=8">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='24' cy='40' r='12' fill='%237a1424'/><circle cx='42' cy='36' r='12' fill='%23a3203a'/><path d='M30 26 C34 14 44 10 52 12' stroke='%232f4a2a' stroke-width='5' fill='none'/></svg>">
 </head>
 <body class="${admin ? 'admin' : 'guest'} ${bodyClass}">
@@ -316,7 +316,11 @@ function adminDashboard({ admin, guests, baseUrl, flash, importReport, email = {
     const st = statusOf(g);
     const link = `${baseUrl}/i/${g.token}`;
     const search = `${g.first_name} ${g.last_name} ${g.email} ${g.plus_one_name || ''}`.toLowerCase();
-    return `<tr data-grp="${g.grp}" data-st="${st}" data-q="${attr(search)}">
+    const domain = (g.email.split('@')[1] || '').toLowerCase();
+    const plus = g.responded && g.attending ? (g.plus_one ? 'yes' : 'no') : '';
+    return `<tr data-grp="${g.grp}" data-st="${st}" data-q="${attr(search)}" data-first="${attr(g.first_name.toLowerCase())}" data-last="${attr((g.last_name || '').toLowerCase())}"
+      data-email="${attr(g.email.toLowerCase())}" data-co="${attr(domain)}" data-inv="${g.invited_at ? 'yes' : 'no'}" data-invat="${g.invited_at ? new Date(g.invited_at).toISOString() : ''}"
+      data-upd="${g.responded ? new Date(g.updated_at).toISOString() : ''}" data-plus="${plus}" data-after="${g.responded && g.attending ? attr(g.after_party || '') : ''}">
       <td><strong>${esc(g.first_name)} ${esc(g.last_name)}</strong><div class="muted">${esc(g.email)}</div></td>
       <td><span class="pill ${g.grp}">${g.grp === 'travel' ? 'Travel' : 'Florida'}</span></td>
       <td>${g.invited_at ? `<div class="muted">Invited ${esc(fmtShortET(g.invited_at))}${g.invite_count > 1 ? ` (${g.invite_count}×)` : ''}</div>` : (g.email ? '<div class="muted">Not invited yet</div>' : '<div class="muted warn">No email</div>')}<span class="pill st-${st}">${st === 'yes' ? 'Attending' : st === 'no' ? 'Declined' : 'No reply'}</span>${g.responded ? `<div class="muted">${esc(fmtShortET(g.updated_at))}${g.updated_by !== 'guest' ? ' · by ' + esc(g.updated_by) : ''}</div>` : ''}</td>
@@ -330,6 +334,7 @@ function adminDashboard({ admin, guests, baseUrl, flash, importReport, email = {
     </tr>`;
   }).join('');
 
+  const companies = [...new Set(guests.map(g => (g.email.split('@')[1] || '').toLowerCase()).filter(Boolean))].sort();
   return adminShell('Dashboard', `
   ${flash ? `<div class="flash">${esc(flash)}</div>` : ''}
   ${importReport || ''}
@@ -350,10 +355,21 @@ function adminDashboard({ admin, guests, baseUrl, flash, importReport, email = {
       <input type="search" id="q" placeholder="Search name or email…">
       <select id="fg"><option value="">All groups</option><option value="florida">Florida</option><option value="travel">Travel</option></select>
       <select id="fs"><option value="">Any status</option><option value="yes">Attending</option><option value="no">Declined</option><option value="pending">No reply</option></select>
+      <select id="fco"><option value="">All companies</option>${companies.map(d => `<option value="${attr(d)}">${esc(d)}</option>`).join('')}</select>
+      <select id="finv"><option value="">Invited or not</option><option value="yes">Invitation sent</option><option value="no">Not invited yet</option></select>
+      <select id="fplus"><option value="">Plus one: any</option><option value="yes">Bringing a plus one</option><option value="no">Coming alone</option></select>
+      <select id="fafter"><option value="">After party: any</option><option value="yes">After party: yes</option><option value="maybe">After party: maybe</option><option value="no">After party: no</option></select>
+      <label class="sortby">Sort by <select id="sortby">
+        <option value="last">Last name</option><option value="first">First name</option><option value="email">Email</option><option value="co">Company (email)</option>
+        <option value="grp">Group</option><option value="st">Status</option><option value="plus">Plus one</option><option value="after">After party</option>
+        <option value="invat">Date invited</option><option value="upd">Date replied</option>
+      </select></label>
+      <button type="button" class="link" id="sortdir" title="Reverse order">A→Z</button>
+      <button type="button" class="link" id="fclear">Clear filters</button>
       <span class="muted" id="count"></span>
     </div>
     <div class="table-wrap"><table class="guests">
-      <thead><tr><th>Guest</th><th>Group</th><th>Status</th><th>Plus one</th><th>Details</th><th></th></tr></thead>
+      <thead><tr><th class="sort" data-sort="last">Guest</th><th class="sort" data-sort="grp">Group</th><th class="sort" data-sort="st">Status</th><th class="sort" data-sort="plus">Plus one</th><th class="sort" data-sort="after">Details</th><th></th></tr></thead>
       <tbody>${rows || '<tr><td colspan="6" class="muted center">No guests yet. Add one below or import your list.</td></tr>'}</tbody>
     </table></div>
   </section>
@@ -532,11 +548,46 @@ document.addEventListener('click',function(e){
   (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){b.textContent='Copied!';setTimeout(function(){b.textContent='Copy link'},1500)},function(){prompt('Copy this link:',t)});
 });
 (function(){
-  var q=document.getElementById('q'),fg=document.getElementById('fg'),fs=document.getElementById('fs'),c=document.getElementById('count');
+  var $=function(id){return document.getElementById(id)};
+  var q=$('q'),c=$('count'),sel=$('sortby'),dirBtn=$('sortdir');
   if(!q) return;
-  function run(){var n=0,qs=q.value.trim().toLowerCase();document.querySelectorAll('table.guests tbody tr[data-grp]').forEach(function(r){
-    var on=(!fg.value||r.dataset.grp===fg.value)&&(!fs.value||r.dataset.st===fs.value)&&(!qs||r.dataset.q.indexOf(qs)>-1);r.hidden=!on;if(on)n++;});c.textContent=n+' shown';}
-  [q,fg,fs].forEach(function(el){el.addEventListener('input',run)});run();
+  var filters={grp:$('fg'),st:$('fs'),co:$('fco'),inv:$('finv'),plus:$('fplus'),after:$('fafter')};
+  var tbody=document.querySelector('table.guests tbody');
+  var rows=[].slice.call(tbody.querySelectorAll('tr[data-grp]'));
+  var dir=1, KEY='soiree-guest-view';
+  // Status order: attending, no reply, declined. Dates: blanks last.
+  var rank={st:{yes:0,pending:1,no:2},plus:{yes:0,no:1,'':2},after:{yes:0,maybe:1,no:2,'':3},grp:{travel:0,florida:1}};
+  function val(r,k){var d=r.dataset;
+    if(rank[k]) return rank[k][d[k]];
+    if(k==='co') return d.co+' '+d.last+' '+d.first;
+    if(k==='last') return d.last+' '+d.first;
+    if(k==='first') return d.first+' '+d.last;
+    return d[k]||'';}
+  function sort(){var k=sel.value;
+    rows.sort(function(a,b){var x=val(a,k),y=val(b,k);
+      if((k==='invat'||k==='upd')&&(!x||!y)) return x===y?0:(x?-1:1);
+      var r=typeof x==='number'?x-y:String(x).localeCompare(String(y));
+      if(!r) r=val(a,'last').localeCompare(val(b,'last'));
+      return r*dir;});
+    rows.forEach(function(r){tbody.appendChild(r)});
+    var dateKey=k==='invat'||k==='upd';
+    dirBtn.textContent=dateKey?(dir>0?'Oldest first':'Newest first'):(dir>0?'A→Z':'Z→A');
+    document.querySelectorAll('th.sort').forEach(function(th){th.classList.toggle('on',th.dataset.sort===k);th.setAttribute('data-dir',dir>0?'up':'down')});}
+  function filter(){var n=0,qs=q.value.trim().toLowerCase();
+    rows.forEach(function(r){var on=!qs||r.dataset.q.indexOf(qs)>-1;
+      for(var k in filters){var v=filters[k].value; if(v&&r.dataset[k]!==v){on=false;break;}}
+      r.hidden=!on; if(on)n++;});
+    c.textContent=n+' of '+rows.length+' shown';}
+  function save(){try{var st={q:q.value,sort:sel.value,dir:dir};for(var k in filters)st[k]=filters[k].value;sessionStorage.setItem(KEY,JSON.stringify(st));}catch(e){}}
+  function load(){try{var st=JSON.parse(sessionStorage.getItem(KEY)||'null');if(!st)return;q.value=st.q||'';if(st.sort)sel.value=st.sort;dir=st.dir||1;for(var k in filters)if(st[k]!=null)filters[k].value=st[k];}catch(e){}}
+  function run(){sort();filter();save();}
+  [q].concat(Object.keys(filters).map(function(k){return filters[k]})).forEach(function(el){el.addEventListener('input',function(){filter();save();})});
+  sel.addEventListener('change',function(){dir=(sel.value==='invat'||sel.value==='upd')?-1:1;run();});
+  dirBtn.addEventListener('click',function(){dir=-dir;run();});
+  $('fclear').addEventListener('click',function(){q.value='';for(var k in filters)filters[k].value='';run();});
+  document.querySelectorAll('th.sort').forEach(function(th){th.addEventListener('click',function(){
+    if(sel.value===th.dataset.sort) dir=-dir; else {sel.value=th.dataset.sort;dir=1;} run();});});
+  load(); run();
 })();
 </script>`;
 }

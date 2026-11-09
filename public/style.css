@@ -220,3 +220,12 @@ form.lookup { max-width: 440px; margin: 8px auto 0; }
 .tabs .tab { padding: 6px 12px; border: 1px solid #e6d9c0; border-radius: 999px; font-size: 13px; color: var(--burgundy); text-decoration: none; }
 .tabs .tab.on { background: var(--burgundy); color: #f6e7c8; border-color: var(--burgundy); }
 .panel-head .btn.small { margin-left: 6px; }
+
+/* Guest table sorting */
+table.guests th.sort { cursor: pointer; user-select: none; white-space: nowrap; }
+table.guests th.sort:hover { color: var(--burgundy); }
+table.guests th.sort::after { content: ' ↕'; opacity: .35; }
+table.guests th.sort.on { color: var(--burgundy); }
+table.guests th.sort.on[data-dir=up]::after { content: ' ▲'; opacity: 1; }
+table.guests th.sort.on[data-dir=down]::after { content: ' ▼'; opacity: 1; }
+.filters .sortby { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #85766a; }
