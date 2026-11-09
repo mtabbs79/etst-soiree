@@ -199,4 +199,28 @@ async function sendMessage({ from, to, subject, text, inReplyTo }) {
   return { ...body, from: fromAddr };
 }
 
-module.exports = { enabled, build, sendTo, DEADLINE_SHORT, listReceived, getReceived, sendMessage, mailboxes, addressOf };
+// Latest delivery event ("delivered", "bounced", ...) for each Resend email id.
+// Uses the email list first (100 per call), then single lookups for any not found.
+async function deliveryEvents(ids) {
+  const want = new Set(ids), out = {};
+  try {
+    let after = '';
+    for (let page = 0; page < 10 && Object.keys(out).length < want.size; page++) {
+      const body = await resendGet(`/emails?limit=100${after ? `&after=${encodeURIComponent(after)}` : ''}`);
+      const data = Array.isArray(body.data) ? body.data : [];
+      for (const e of data) if (want.has(e.id)) out[e.id] = e.last_event || '';
+      if (!body.has_more || !data.length) break;
+      after = data[data.length - 1].id;
+      await sleep(600);
+    }
+  } catch (err) { console.error('Delivery list lookup failed:', err.message); }
+  const missing = ids.filter(id => !(id in out)).slice(0, 60);
+  for (const id of missing) {
+    try { const e = await resendGet(`/emails/${encodeURIComponent(id)}`); out[id] = e.last_event || ''; }
+    catch (err) { console.error('Delivery lookup failed:', err.message); }
+    await sleep(600);
+  }
+  return out;
+}
+
+module.exports = { deliveryEvents, enabled, build, sendTo, DEADLINE_SHORT, listReceived, getReceived, sendMessage, mailboxes, addressOf };

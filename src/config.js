@@ -17,6 +17,18 @@ module.exports = {
   mailFrom: env.MAIL_FROM || "ETST's Very Merry Soirée <rsvp@etstevent.com>",
   mailReplyTo: env.MAIL_REPLY_TO || 'info@etstevent.com',
 
+  // Company shown for a guest when none was entered, looked up by email domain.
+  companyByDomain: {
+    'rxcs.net': 'Rx Compound Store',
+    'mistermeds.com': 'Mister Meds',
+    'meduvo.com': 'Meduvo',
+    'magnechef.com': 'MagneChef',
+    'peaknow.com': 'PeakNow',
+    'zoolzy.com': 'Zoolzy',
+    'earthsciencetech.com': 'Earth Science Tech',
+    'etst.com': 'Earth Science Tech',
+  },
+
   event: {
     host: "ETST's Annual",
     title: 'A Very Merry',

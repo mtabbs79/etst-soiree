@@ -32,6 +32,13 @@ RSVP site for ETST's Annual "A Very Merry Soirée", Fri Dec 11, 2026, 7–11 PM,
   Email HTML is shown in a sandboxed iframe. ImprovMX forwarding was briefly set up on Nov 7; its MX/TXT records at GoDaddy
   should be removed so all mail goes to Resend.
 
+- Guests have a `company` column (shown in the admin table, filter/sort, CSV exports, optional 5th import column). Blank companies are
+  filled from `config.companyByDomain` (email domain → name) on boot and when guests are added/edited.
+- Invitation delivery: email_log.delivery holds Resend's last_event. "Check delivery status" (POST /admin/email/check-delivery) looks up
+  unresolved invites (GET /emails list, then GET /emails/:id fallback). The Status column shows Delivered / not confirmed / Delayed /
+  Failed or bounced with a Resend button; the invite send has an "only failed or bounced" option. "Delivered" means the guest's mail
+  server accepted it; it can still land in Junk/quarantine.
+
 ## Status as of Nov 7, 2026
 - Live at https://etst-soiree.onrender.com. The database is connected. Render auto-deploys `main`; the live commit matched the repo on Nov 7.
 - Resend: etstevent.com is fully VERIFIED (sending enabled) as of Nov 7.

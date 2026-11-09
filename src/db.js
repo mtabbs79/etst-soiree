@@ -55,16 +55,30 @@ const SCHEMA = [
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
   )`,
   `ALTER TABLE email_log ADD COLUMN IF NOT EXISTS from_email TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE guests ADD COLUMN IF NOT EXISTS company TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE email_log ADD COLUMN IF NOT EXISTS delivery TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE email_log ADD COLUMN IF NOT EXISTS delivery_at TIMESTAMPTZ`,
   `ALTER TABLE email_log ADD COLUMN IF NOT EXISTS body TEXT NOT NULL DEFAULT ''`,
 ];
 
 async function init() {
   for (const stmt of SCHEMA) await pool.query(stmt);
+  // Fill in a company for guests that have none, from their email domain.
+  for (const [domain, name] of Object.entries(config.companyByDomain || {})) {
+    await pool.query(`UPDATE guests SET company = $2 WHERE company = '' AND lower(split_part(email, '@', 2)) = $1`, [domain, name]);
+  }
+}
+
+// Company for a guest: what was entered, else looked up from the email domain.
+function companyFor(email, given) {
+  if (given) return given;
+  const domain = String(email || '').split('@')[1] || '';
+  return (config.companyByDomain || {})[domain.toLowerCase()] || '';
 }
 
 const newToken = () => crypto.randomBytes(9).toString('base64url');
 
-const GUEST_COLS = 'g.id, g.token, g.first_name, g.last_name, g.email, g.grp, g.plus_one_allowed, g.notes, g.created_at, g.invited_at, g.invite_count';
+const GUEST_COLS = 'g.id, g.token, g.first_name, g.last_name, g.email, g.grp, g.plus_one_allowed, g.notes, g.created_at, g.invited_at, g.invite_count, g.company';
 const RSVP_COLS = `r.attending, r.plus_one, r.plus_one_name, r.after_party, r.dietary, r.phone,
   r.legal_name, r.plus_one_legal_name, r.home_airport, r.arrival_date, r.departure_date,
   r.needs_hotel, r.travel_notes, r.submitted_at, r.updated_at, r.updated_by,
@@ -86,26 +100,31 @@ async function guestByEmail(email) {
 
 async function listGuests() {
   const { rows } = await pool.query(
-    `SELECT ${GUEST_COLS}, ${RSVP_COLS} FROM guests g LEFT JOIN rsvps r ON r.guest_id = g.id
+    `SELECT ${GUEST_COLS}, ${RSVP_COLS}, e.inv_status, e.inv_delivery, e.inv_error, e.inv_delivery_at
+     FROM guests g LEFT JOIN rsvps r ON r.guest_id = g.id
+     LEFT JOIN LATERAL (
+       SELECT status AS inv_status, delivery AS inv_delivery, error AS inv_error, delivery_at AS inv_delivery_at
+       FROM email_log WHERE guest_id = g.id AND kind = 'invite' ORDER BY created_at DESC, id DESC LIMIT 1
+     ) e ON true
      ORDER BY g.grp DESC, lower(g.last_name), lower(g.first_name)`
   );
   return rows;
 }
 
-async function addGuest({ first_name, last_name, email, grp, plus_one_allowed, notes }) {
+async function addGuest({ first_name, last_name, email, grp, plus_one_allowed, notes, company }) {
   const { rows } = await pool.query(
-    `INSERT INTO guests (token, first_name, last_name, email, grp, plus_one_allowed, notes)
-     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, token`,
-    [newToken(), first_name, last_name || '', email || '', grp, plus_one_allowed !== false, notes || '']
+    `INSERT INTO guests (token, first_name, last_name, email, grp, plus_one_allowed, notes, company)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id, token`,
+    [newToken(), first_name, last_name || '', email || '', grp, plus_one_allowed !== false, notes || '', companyFor(email, company)]
   );
   return rows[0];
 }
 
-async function updateGuest(id, { first_name, last_name, email, grp, plus_one_allowed }) {
+async function updateGuest(id, { first_name, last_name, email, grp, plus_one_allowed, company }) {
   const { rows } = await pool.query(
-    `UPDATE guests SET first_name=$2, last_name=$3, email=$4, grp=$5, plus_one_allowed=$6
+    `UPDATE guests SET first_name=$2, last_name=$3, email=$4, grp=$5, plus_one_allowed=$6, company=$7
      WHERE id=$1 RETURNING id`,
-    [id, first_name, last_name || '', email || '', grp, !!plus_one_allowed]
+    [id, first_name, last_name || '', email || '', grp, !!plus_one_allowed, companyFor(email, company)]
   );
   return rows[0];
 }
@@ -174,6 +193,19 @@ async function sentMessage(id) {
   return rows[0] || null;
 }
 
+// Sent invitations whose final delivery result isn't known yet (newest first).
+async function invitesToCheck(limit = 500) {
+  const { rows } = await pool.query(
+    `SELECT DISTINCT ON (guest_id) id, guest_id, provider_id, delivery FROM email_log
+     WHERE kind = 'invite' AND guest_id IS NOT NULL ORDER BY guest_id, created_at DESC, id DESC`);
+  return rows.filter(r => r.provider_id && !['delivered', 'opened', 'clicked', 'bounced', 'complained', 'failed', 'suppressed', 'canceled'].includes(r.delivery))
+    .slice(0, limit);
+}
+
+async function setDelivery(logId, delivery) {
+  await pool.query(`UPDATE email_log SET delivery = $2, delivery_at = now() WHERE id = $1`, [logId, String(delivery || '').slice(0, 40)]);
+}
+
 async function recentEmails(limit = 15) {
   const { rows } = await pool.query(
     `SELECT kind, subject, sent_by, min(created_at) AS at,
@@ -192,4 +224,4 @@ async function sentToday() {
   return rows[0] ? rows[0].n : 0;
 }
 
-module.exports = { sentMessages, sentMessage, guestByEmail, logEmail, recentEmails, sentToday, pool, init, guestByToken, listGuests, addGuest, updateGuest, emailExists, deleteGuest, saveRsvp, clearRsvp };
+module.exports = { invitesToCheck, setDelivery, sentMessages, sentMessage, guestByEmail, logEmail, recentEmails, sentToday, pool, init, guestByToken, listGuests, addGuest, updateGuest, emailExists, deleteGuest, saveRsvp, clearRsvp };

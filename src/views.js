@@ -32,7 +32,7 @@ function layout(title, body, { admin = false, bodyClass = '' } = {}) {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Great+Vibes&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/style.css?v=8">
+<link rel="stylesheet" href="/static/style.css?v=9">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='24' cy='40' r='12' fill='%237a1424'/><circle cx='42' cy='36' r='12' fill='%23a3203a'/><path d='M30 26 C34 14 44 10 52 12' stroke='%232f4a2a' stroke-width='5' fill='none'/></svg>">
 </head>
 <body class="${admin ? 'admin' : 'guest'} ${bodyClass}">
@@ -268,6 +268,21 @@ function adminLogin(error) {
   </form>`);
 }
 
+// Where a guest's latest invitation stands: none | pending | delivered | delayed | problem.
+const DELIVERED = ['delivered', 'opened', 'clicked'], PROBLEM = ['bounced', 'complained', 'failed', 'suppressed', 'canceled'];
+function inviteState(g) {
+  if (!g.invited_at && !g.inv_status) return 'none';
+  if (g.inv_status === 'failed' || PROBLEM.includes(g.inv_delivery)) return 'problem';
+  if (DELIVERED.includes(g.inv_delivery)) return 'delivered';
+  if (g.inv_delivery === 'delivery_delayed') return 'delayed';
+  return 'pending';
+}
+function inviteLabel(g) {
+  const s = inviteState(g);
+  if (s === 'problem') return g.inv_status === 'failed' ? 'Failed to send' : ({ bounced: 'Bounced', complained: 'Marked as spam', suppressed: 'Blocked (bounced before)', canceled: 'Canceled' }[g.inv_delivery] || 'Failed');
+  return { none: '', pending: 'Sent, not confirmed yet', delivered: 'Delivered', delayed: 'Delayed' }[s];
+}
+
 function statusOf(g) { return !g.responded ? 'pending' : g.attending ? 'yes' : 'no'; }
 
 function stats(guests) {
@@ -315,15 +330,19 @@ function adminDashboard({ admin, guests, baseUrl, flash, importReport, email = {
   const rows = guests.map(g => {
     const st = statusOf(g);
     const link = `${baseUrl}/i/${g.token}`;
-    const search = `${g.first_name} ${g.last_name} ${g.email} ${g.plus_one_name || ''}`.toLowerCase();
-    const domain = (g.email.split('@')[1] || '').toLowerCase();
+    const search = `${g.first_name} ${g.last_name} ${g.email} ${g.company || ''} ${g.plus_one_name || ''}`.toLowerCase();
+    const company = g.company || (g.email.split('@')[1] || '').toLowerCase();
     const plus = g.responded && g.attending ? (g.plus_one ? 'yes' : 'no') : '';
     return `<tr data-grp="${g.grp}" data-st="${st}" data-q="${attr(search)}" data-first="${attr(g.first_name.toLowerCase())}" data-last="${attr((g.last_name || '').toLowerCase())}"
-      data-email="${attr(g.email.toLowerCase())}" data-co="${attr(domain)}" data-inv="${g.invited_at ? 'yes' : 'no'}" data-invat="${g.invited_at ? new Date(g.invited_at).toISOString() : ''}"
+      data-email="${attr(g.email.toLowerCase())}" data-co="${attr(company)}" data-inv="${g.invited_at ? 'yes' : 'no'}" data-del="${inviteState(g)}" data-invat="${g.invited_at ? new Date(g.invited_at).toISOString() : ''}"
       data-upd="${g.responded ? new Date(g.updated_at).toISOString() : ''}" data-plus="${plus}" data-after="${g.responded && g.attending ? attr(g.after_party || '') : ''}">
       <td><strong>${esc(g.first_name)} ${esc(g.last_name)}</strong><div class="muted">${esc(g.email)}</div></td>
+      <td>${esc(company)}</td>
       <td><span class="pill ${g.grp}">${g.grp === 'travel' ? 'Travel' : 'Florida'}</span></td>
-      <td>${g.invited_at ? `<div class="muted">Invited ${esc(fmtShortET(g.invited_at))}${g.invite_count > 1 ? ` (${g.invite_count}×)` : ''}</div>` : (g.email ? '<div class="muted">Not invited yet</div>' : '<div class="muted warn">No email</div>')}<span class="pill st-${st}">${st === 'yes' ? 'Attending' : st === 'no' ? 'Declined' : 'No reply'}</span>${g.responded ? `<div class="muted">${esc(fmtShortET(g.updated_at))}${g.updated_by !== 'guest' ? ' · by ' + esc(g.updated_by) : ''}</div>` : ''}</td>
+      <td>${g.invited_at || g.inv_status ? `<div class="muted">${g.invited_at ? `Invited ${esc(fmtShortET(g.invited_at))}${g.invite_count > 1 ? ` (${g.invite_count}×)` : ''}` : 'Invitation not sent'}</div>
+        <div class="deliv ${inviteState(g)}" title="${attr(g.inv_error || '')}">${esc(inviteLabel(g))}</div>
+        ${inviteState(g) === 'problem' && g.email ? `<form method="post" action="/admin/guests/${g.id}/invite" class="inline" onsubmit="return confirm('Resend the invitation to ${attr(g.email)}?')"><button class="link">Resend</button></form>` : ''}`
+        : (g.email ? '<div class="muted">Not invited yet</div>' : '<div class="muted warn">No email</div>')}<span class="pill st-${st}">${st === 'yes' ? 'Attending' : st === 'no' ? 'Declined' : 'No reply'}</span>${g.responded ? `<div class="muted">${esc(fmtShortET(g.updated_at))}${g.updated_by !== 'guest' ? ' · by ' + esc(g.updated_by) : ''}</div>` : ''}</td>
       <td>${g.responded && g.attending && g.plus_one ? esc(g.plus_one_name) : '<span class="muted">—</span>'}</td>
       <td class="muted">${g.responded && g.attending ? esc([g.after_party ? 'After party: ' + g.after_party : '', g.dietary ? 'Diet: ' + g.dietary : ''].filter(Boolean).join(' · ')) : ''}</td>
       <td class="actions">
@@ -334,7 +353,7 @@ function adminDashboard({ admin, guests, baseUrl, flash, importReport, email = {
     </tr>`;
   }).join('');
 
-  const companies = [...new Set(guests.map(g => (g.email.split('@')[1] || '').toLowerCase()).filter(Boolean))].sort();
+  const companies = [...new Set(guests.map(g => g.company || (g.email.split('@')[1] || '').toLowerCase()).filter(Boolean))].sort();
   return adminShell('Dashboard', `
   ${flash ? `<div class="flash">${esc(flash)}</div>` : ''}
   ${importReport || ''}
@@ -352,15 +371,15 @@ function adminDashboard({ admin, guests, baseUrl, flash, importReport, email = {
       </div>
     </div>
     <div class="filters">
-      <input type="search" id="q" placeholder="Search name or email…">
+      <input type="search" id="q" placeholder="Search name, email or company…">
       <select id="fg"><option value="">All groups</option><option value="florida">Florida</option><option value="travel">Travel</option></select>
       <select id="fs"><option value="">Any status</option><option value="yes">Attending</option><option value="no">Declined</option><option value="pending">No reply</option></select>
       <select id="fco"><option value="">All companies</option>${companies.map(d => `<option value="${attr(d)}">${esc(d)}</option>`).join('')}</select>
-      <select id="finv"><option value="">Invited or not</option><option value="yes">Invitation sent</option><option value="no">Not invited yet</option></select>
+      <select id="fdel"><option value="">Invitation: any</option><option value="none">Not invited yet</option><option value="pending">Sent, not confirmed</option><option value="delivered">Delivered</option><option value="delayed">Delayed</option><option value="problem">Failed or bounced</option></select>
       <select id="fplus"><option value="">Plus one: any</option><option value="yes">Bringing a plus one</option><option value="no">Coming alone</option></select>
       <select id="fafter"><option value="">After party: any</option><option value="yes">After party: yes</option><option value="maybe">After party: maybe</option><option value="no">After party: no</option></select>
       <label class="sortby">Sort by <select id="sortby">
-        <option value="last">Last name</option><option value="first">First name</option><option value="email">Email</option><option value="co">Company (email)</option>
+        <option value="last">Last name</option><option value="first">First name</option><option value="email">Email</option><option value="co">Company</option>
         <option value="grp">Group</option><option value="st">Status</option><option value="plus">Plus one</option><option value="after">After party</option>
         <option value="invat">Date invited</option><option value="upd">Date replied</option>
       </select></label>
@@ -369,8 +388,8 @@ function adminDashboard({ admin, guests, baseUrl, flash, importReport, email = {
       <span class="muted" id="count"></span>
     </div>
     <div class="table-wrap"><table class="guests">
-      <thead><tr><th class="sort" data-sort="last">Guest</th><th class="sort" data-sort="grp">Group</th><th class="sort" data-sort="st">Status</th><th class="sort" data-sort="plus">Plus one</th><th class="sort" data-sort="after">Details</th><th></th></tr></thead>
-      <tbody>${rows || '<tr><td colspan="6" class="muted center">No guests yet. Add one below or import your list.</td></tr>'}</tbody>
+      <thead><tr><th class="sort" data-sort="last">Guest</th><th class="sort" data-sort="co">Company</th><th class="sort" data-sort="grp">Group</th><th class="sort" data-sort="st">Status</th><th class="sort" data-sort="plus">Plus one</th><th class="sort" data-sort="after">Details</th><th></th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="7" class="muted center">No guests yet. Add one below or import your list.</td></tr>'}</tbody>
     </table></div>
   </section>
 
@@ -385,7 +404,7 @@ function adminDashboard({ admin, guests, baseUrl, flash, importReport, email = {
     <section class="panel">
       <h2>Import guest list</h2>
       <p class="muted">Paste from Excel or a CSV. Columns, in this order, with or without a header row:</p>
-      <code class="cols">first name, last name, email, location</code>
+      <code class="cols">first name, last name, email, location, company (optional)</code>
       <p class="muted small">Location: <em>Florida</em> or <em>Other</em>. Florida = local invite (RSVP by Dec 1). Other = out of state, travel invite (RSVP by Nov 16, airfare and hotel covered). Rows with a blank location are not imported. Every guest is invited with a plus one. Emails already on the list are skipped.</p>
       <form method="post" action="/admin/import" class="stack">
         <textarea name="csv" rows="7" placeholder="Jane,Smith,jane@example.com,Florida&#10;Tom,Lee,tom@example.com,Other"></textarea>
@@ -411,7 +430,7 @@ function emailPanel(guests, email) {
         <h3>Send invitations</h3>
         <p class="muted">Not invited yet: ${notInvited('florida')} Florida · ${notInvited('travel')} Travel</p>
         <label class="field"><span>Who</span>${grpSelect}</label>
-        <label class="field"><span>Include guests already invited?</span><select name="who"><option value="new">No, only guests not invited yet</option><option value="everyone">Yes, resend to everyone in the group</option></select></label>
+        <label class="field"><span>Include guests already invited?</span><select name="who"><option value="new">No, only guests not invited yet</option><option value="everyone">Yes, resend to everyone in the group</option><option value="problem">Only guests whose invitation failed or bounced</option></select></label>
         <label class="field"><span>Send at most</span><input type="number" name="limit" value="100" min="1" max="1000"></label>
         <button class="btn">Preview</button>
       </form>
@@ -437,6 +456,10 @@ function emailPanel(guests, email) {
         <button class="btn">Preview</button>
       </form>
     </div>
+    <form method="post" action="/admin/email/check-delivery" class="check-delivery" onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').textContent='Checking…';">
+      <button class="btn ghost small">Check delivery status</button>
+      <span class="muted">Asks the email service which invitations were delivered, bounced or failed. Results show in the Status column.</span>
+    </form>
     ${recent ? `<details class="recent"><summary>Recent sends</summary><ul>${recent}</ul></details>` : ''}
   </section>`;
 }
@@ -479,6 +502,7 @@ function guestFields(g) {
     <label class="field"><span>Last name</span><input name="last_name" value="${attr(g.last_name)}" maxlength="60"></label>
   </div>
   <label class="field"><span>Email</span><input type="email" name="email" value="${attr(g.email)}" maxlength="120"></label>
+  <label class="field"><span>Company <em>(optional; filled in from the email when blank)</em></span><input name="company" value="${attr(g.company || '')}" maxlength="80"></label>
   <div>
     <label class="field"><span>Invitation</span><select name="grp">
       <option value="florida" ${g.grp === 'florida' ? 'selected' : ''}>Florida (RSVP Dec 1)</option>
@@ -551,7 +575,7 @@ document.addEventListener('click',function(e){
   var $=function(id){return document.getElementById(id)};
   var q=$('q'),c=$('count'),sel=$('sortby'),dirBtn=$('sortdir');
   if(!q) return;
-  var filters={grp:$('fg'),st:$('fs'),co:$('fco'),inv:$('finv'),plus:$('fplus'),after:$('fafter')};
+  var filters={grp:$('fg'),st:$('fs'),co:$('fco'),del:$('fdel'),plus:$('fplus'),after:$('fafter')};
   var tbody=document.querySelector('table.guests tbody');
   var rows=[].slice.call(tbody.querySelectorAll('tr[data-grp]'));
   var dir=1, KEY='soiree-guest-view';
@@ -559,7 +583,7 @@ document.addEventListener('click',function(e){
   var rank={st:{yes:0,pending:1,no:2},plus:{yes:0,no:1,'':2},after:{yes:0,maybe:1,no:2,'':3},grp:{travel:0,florida:1}};
   function val(r,k){var d=r.dataset;
     if(rank[k]) return rank[k][d[k]];
-    if(k==='co') return d.co+' '+d.last+' '+d.first;
+    if(k==='co') return (d.co||'~')+' '+d.last+' '+d.first;
     if(k==='last') return d.last+' '+d.first;
     if(k==='first') return d.first+' '+d.last;
     return d[k]||'';}
@@ -700,4 +724,4 @@ function adminSentMessage({ admin, sm }) {
   </section>`, admin);
 }
 
-module.exports = { adminInbox, adminInboxMessage, adminCompose, adminSentMessage, adminEmailPreview, home, rsvpForm, thanks, notFound, adminLogin, adminDashboard, adminEditGuest, esc, statusOf };
+module.exports = { inviteState, adminInbox, adminInboxMessage, adminCompose, adminSentMessage, adminEmailPreview, home, rsvpForm, thanks, notFound, adminLogin, adminDashboard, adminEditGuest, esc, statusOf };

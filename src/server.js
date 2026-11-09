@@ -142,7 +142,7 @@ async function importCsv(text) {
   rows.forEach((r, i) => { r._line = i + 1; });
   if (rows.length && /first/i.test(rows[0][0] || '') && /(last|email|name)/i.test(rows[0].join(' '))) rows.shift();
   for (const r of rows) {
-    const [first, last, email, location] = r.map(v => (v || '').trim());
+    const [first, last, email, location, company] = r.map(v => (v || '').trim());
     if (!first) { report.errors.push(`Line ${r._line}: missing first name`); continue; }
     if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { report.errors.push(`Line ${r._line}: “${email}” doesn’t look like an email`); continue; }
     const grp = normalizeGroup(location);
@@ -150,7 +150,7 @@ async function importCsv(text) {
     if (email && await db.emailExists(email)) { report.skipped.push(`${first} ${last} (${email}) is already on the list`); continue; }
     await db.addGuest({
       first_name: first.slice(0, 60), last_name: (last || '').slice(0, 60), email: (email || '').slice(0, 120),
-      grp, plus_one_allowed: true,
+      grp, plus_one_allowed: true, company: (company || '').slice(0, 80),
     });
     report.added++;
     report[grp]++;
@@ -173,8 +173,8 @@ async function exportCsv(res, kind, req) {
   let header, rows, name;
   if (kind === 'travel') {
     name = 'soiree-travel-list.csv';
-    header = ['First name', 'Last name', 'Email', 'Phone', 'Status', 'Legal name (ID)', 'Plus one', 'Plus one legal name (ID)', 'Home airport', 'Arrive', 'Depart', 'Needs hotel', 'Travel notes', 'Dietary', 'Last updated'];
-    rows = guests.filter(g => g.grp === 'travel').map(g => [g.first_name, g.last_name, g.email, g.phone, st(g), g.legal_name,
+    header = ['First name', 'Last name', 'Company', 'Email', 'Phone', 'Status', 'Legal name (ID)', 'Plus one', 'Plus one legal name (ID)', 'Home airport', 'Arrive', 'Depart', 'Needs hotel', 'Travel notes', 'Dietary', 'Last updated'];
+    rows = guests.filter(g => g.grp === 'travel').map(g => [g.first_name, g.last_name, g.company, g.email, g.phone, st(g), g.legal_name,
       g.plus_one ? g.plus_one_name : '', g.plus_one ? g.plus_one_legal_name : '', g.home_airport, g.arrival_date, g.departure_date,
       g.responded && g.attending ? (g.needs_hotel ? 'Yes' : 'No') : '', g.travel_notes, g.dietary, fmtTs(g.updated_at)]);
   } else if (kind === 'links') {
@@ -184,9 +184,9 @@ async function exportCsv(res, kind, req) {
       g.grp === 'travel' ? 'November 16, 2026' : 'December 1, 2026', `${base}/i/${g.token}`, st(g)]);
   } else {
     name = 'soiree-all-guests.csv';
-    header = ['First name', 'Last name', 'Email', 'Invitation', 'Status', 'Plus one', 'Headcount', 'After party', 'Dietary', 'Phone',
+    header = ['First name', 'Last name', 'Company', 'Email', 'Invitation', 'Status', 'Plus one', 'Headcount', 'After party', 'Dietary', 'Phone',
       'Legal name (ID)', 'Plus one legal name (ID)', 'Home airport', 'Arrive', 'Depart', 'Needs hotel', 'Travel notes', 'Last updated', 'Updated by', 'RSVP link'];
-    rows = guests.map(g => [g.first_name, g.last_name, g.email, g.grp === 'travel' ? 'Travel' : 'Florida', st(g),
+    rows = guests.map(g => [g.first_name, g.last_name, g.company, g.email, g.grp === 'travel' ? 'Travel' : 'Florida', st(g),
       g.plus_one ? g.plus_one_name : '', g.responded && g.attending ? 1 + (g.plus_one ? 1 : 0) : 0, g.after_party || '', g.dietary || '',
       g.phone || '', g.legal_name || '', g.plus_one_legal_name || '', g.home_airport || '', g.arrival_date || '', g.departure_date || '',
       g.grp === 'travel' && g.responded && g.attending ? (g.needs_hotel ? 'Yes' : 'No') : '', g.travel_notes || '',
@@ -207,7 +207,8 @@ async function emailInfo() {
 
 function pickRecipients(guests, { kind, grp, who, limit }) {
   let list = guests.filter(g => grp === 'all' || g.grp === grp);
-  if (kind === 'invite' && who !== 'everyone') list = list.filter(g => !g.invited_at);
+  if (kind === 'invite' && who === 'problem') list = list.filter(g => views.inviteState(g) === 'problem');
+  else if (kind === 'invite' && who !== 'everyone') list = list.filter(g => !g.invited_at);
   if (kind === 'reminder' || who === 'pending') list = list.filter(g => !g.responded);
   if (kind === 'update' && who === 'attending') list = list.filter(g => g.responded && g.attending);
   const skipped = list.filter(g => !g.email).length;
@@ -291,7 +292,7 @@ async function handle(req, res) {
       const first = clean(b.first_name, 60), email = clean(b.email, 120);
       if (!first) return redirect(res, '/admin?msg=' + encodeURIComponent('First name is required.'));
       if (email && await db.emailExists(email)) return redirect(res, '/admin?msg=' + encodeURIComponent(`${email} is already on the guest list.`));
-      await db.addGuest({ first_name: first, last_name: clean(b.last_name, 60), email, grp: b.grp === 'travel' ? 'travel' : 'florida', plus_one_allowed: true });
+      await db.addGuest({ first_name: first, last_name: clean(b.last_name, 60), email, grp: b.grp === 'travel' ? 'travel' : 'florida', plus_one_allowed: true, company: clean(b.company, 80) });
       return redirect(res, '/admin?msg=' + encodeURIComponent(`Added ${first}.`));
     }
     if (p === '/admin/email/preview' || p === '/admin/email/test' || p === '/admin/email/send') {
@@ -396,6 +397,18 @@ async function handle(req, res) {
         }
       }
     }
+    // Ask Resend what happened to each invitation (delivered, bounced, ...).
+    if (p === '/admin/email/check-delivery' && m === 'POST') {
+      if (!mail.enabled()) return redirect(res, '/admin?msg=' + encodeURIComponent('Email isn’t connected yet.'));
+      const todo = await db.invitesToCheck();
+      const events = todo.length ? await mail.deliveryEvents(todo.map(r => r.provider_id)) : {};
+      let checked = 0;
+      for (const r of todo) if (events[r.provider_id] !== undefined) { await db.setDelivery(r.id, events[r.provider_id]); checked++; }
+      const guests = await db.listGuests();
+      const count = (s) => guests.filter(g => views.inviteState(g) === s).length;
+      const problems = count('problem');
+      return redirect(res, '/admin?msg=' + encodeURIComponent(`Delivery checked. ${count('delivered')} delivered, ${count('pending') + count('delayed')} still on the way, ${problems} failed or bounced.` + (todo.length - checked ? ` ${todo.length - checked} couldn’t be checked; try again in a minute.` : '')));
+    }
     mm = p.match(/^\/admin\/guests\/(\d+)\/invite$/);
     if (mm && m === 'POST') {
       const g = (await db.listGuests()).find(x => x.id === Number(mm[1]));
@@ -419,7 +432,7 @@ async function handle(req, res) {
         if (!first) return send(res, 422, views.adminEditGuest({ admin, g, baseUrl: base, error: 'First name is required.' }));
         if (email && email.toLowerCase() !== (g.email || '').toLowerCase() && await db.emailExists(email))
           return send(res, 422, views.adminEditGuest({ admin, g, baseUrl: base, error: `${email} is already on the guest list.` }));
-        await db.updateGuest(id, { first_name: first, last_name: clean(b.last_name, 60), email, grp: b.grp === 'travel' ? 'travel' : 'florida', plus_one_allowed: true });
+        await db.updateGuest(id, { first_name: first, last_name: clean(b.last_name, 60), email, grp: b.grp === 'travel' ? 'travel' : 'florida', plus_one_allowed: true, company: clean(b.company, 80) });
         return redirect(res, '/admin?msg=' + encodeURIComponent(`Saved ${first}.`));
       }
     }

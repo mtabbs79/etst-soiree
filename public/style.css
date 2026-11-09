@@ -229,3 +229,15 @@ table.guests th.sort.on { color: var(--burgundy); }
 table.guests th.sort.on[data-dir=up]::after { content: ' ▲'; opacity: 1; }
 table.guests th.sort.on[data-dir=down]::after { content: ' ▼'; opacity: 1; }
 .filters .sortby { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #85766a; }
+
+/* Invitation delivery status */
+.deliv { font-size: 12px; margin: 1px 0 3px; }
+.deliv.delivered { color: var(--ok); }
+.deliv.delivered::before { content: '✓ '; }
+.deliv.pending { color: #85766a; }
+.deliv.delayed { color: #a06a00; }
+.deliv.problem { color: #a3122a; font-weight: 600; }
+.deliv.problem::before { content: '⚠ '; }
+form.inline { display: inline; }
+.check-delivery { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 10px 0 4px; }
+.check-delivery .btn { margin: 0; }
