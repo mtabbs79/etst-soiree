@@ -209,7 +209,7 @@ function pickRecipients(guests, { kind, grp, who, limit }) {
   let list = guests.filter(g => grp === 'all' || g.grp === grp);
   if (kind === 'cancel') {
     // Everyone who was sent an invitation; optionally skip guests who already declined.
-    list = list.filter(g => g.invited_at || g.inv_status);
+    list = list.filter(g => (g.invited_at || g.inv_status) && !g.cancel_sent);
     if (who === 'not-declined') list = list.filter(g => !(g.responded && !g.attending));
   } else if (kind === 'invite' && who === 'problem') list = list.filter(g => views.inviteState(g) === 'problem');
   else if (kind === 'invite' && who !== 'everyone') list = list.filter(g => !g.invited_at);

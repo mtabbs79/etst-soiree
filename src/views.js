@@ -472,10 +472,12 @@ function emailPanel(guests, email) {
       </form>
     </div>
     <form method="post" action="/admin/email/preview" class="stack mini cancel-panel">
-      <input type="hidden" name="kind" value="cancel"><input type="hidden" name="grp" value="all"><input type="hidden" name="limit" value="1000">
+      <input type="hidden" name="kind" value="cancel"><input type="hidden" name="grp" value="all">
       <h3>Send cancellation notice</h3>
       <p class="muted">Tells guests the party is cancelled. Travel guests also hear that the team will follow up on any flights or hotel. ${config.cancelled ? 'RSVP pages already show the cancellation.' : 'Ask the site’s technical contact to switch RSVP pages to the cancellation notice too.'}</p>
+      <p class="muted">Not sent yet: ${guests.filter(g => g.email && (g.invited_at || g.inv_status) && !g.cancel_sent).length} · Already sent: ${guests.filter(g => g.cancel_sent).length}. Guests who already got it are skipped, so you can send in batches.</p>
       <label class="field"><span>Who</span><select name="who"><option value="invited">Everyone who was invited</option><option value="not-declined">Everyone invited except guests who declined</option></select></label>
+      <label class="field"><span>Send at most <em>(the email service allows 100 a day, tests included)</em></span><input type="number" name="limit" value="95" min="1" max="1000"></label>
       <button class="btn">Preview</button>
     </form>
     <form method="post" action="/admin/email/check-delivery" class="check-delivery" onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').textContent='Checking…';">

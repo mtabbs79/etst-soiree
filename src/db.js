@@ -100,7 +100,8 @@ async function guestByEmail(email) {
 
 async function listGuests() {
   const { rows } = await pool.query(
-    `SELECT ${GUEST_COLS}, ${RSVP_COLS}, e.inv_status, e.inv_delivery, e.inv_error, e.inv_delivery_at
+    `SELECT ${GUEST_COLS}, ${RSVP_COLS}, e.inv_status, e.inv_delivery, e.inv_error, e.inv_delivery_at,
+       EXISTS (SELECT 1 FROM email_log c WHERE c.guest_id = g.id AND c.kind = 'cancel' AND c.status = 'sent') AS cancel_sent
      FROM guests g LEFT JOIN rsvps r ON r.guest_id = g.id
      LEFT JOIN LATERAL (
        SELECT status AS inv_status, delivery AS inv_delivery, error AS inv_error, delivery_at AS inv_delivery_at
