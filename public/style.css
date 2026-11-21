@@ -241,3 +241,8 @@ table.guests th.sort.on[data-dir=down]::after { content: ' ▼'; opacity: 1; }
 form.inline { display: inline; }
 .check-delivery { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 10px 0 4px; }
 .check-delivery .btn { margin: 0; }
+
+/* Cancellation */
+.banner.cancelled { background: linear-gradient(180deg, #4a7d22, #2f5a16); border-color: #a8d05a; }
+.cancel-panel { border-top: 1px solid #eee1c6; margin-top: 14px; padding-top: 12px; max-width: 520px; }
+.card.no-footer .paper { padding-bottom: 28px; border-bottom: 8px solid #3f6e1c; }

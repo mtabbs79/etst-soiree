@@ -39,6 +39,12 @@ RSVP site for ETST's Annual "A Very Merry Soirée", Fri Dec 11, 2026, 7–11 PM,
   Failed or bounced with a Resend button; the invite send has an "only failed or bounced" option. "Delivered" means the guest's mail
   server accepted it; it can still land in Junk/quarantine.
 
+- Cancellation (Nov 21): the party is being cancelled. Email kind `cancel` (mail.js `cancel()`: garland-top.jpg + parchment, green
+  "has been cancelled" plaque, extra travel paragraph about booked flights/hotel; no RSVP button). Admin → Email guests →
+  "Send cancellation notice" (everyone invited / except declined). Env var EVENT_CANCELLED=true turns the home page and every
+  /i/<token> page into the cancellation notice (views.cancelledPage) and blocks RSVPs; admins still see the normal pages.
+  No Grinch artwork: the character is copyrighted, so the theme is green colors + a one-line text nod only.
+
 ## Status as of Nov 7, 2026
 - Live at https://etst-soiree.onrender.com. The database is connected. Render auto-deploys `main`; the live commit matched the repo on Nov 7.
 - Resend: etstevent.com is fully VERIFIED (sending enabled) as of Nov 7.

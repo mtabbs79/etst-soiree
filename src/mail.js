@@ -111,8 +111,61 @@ ${button(url, 'View my RSVP')}`;
   return { subject, html: shell(base, inner, String(message).slice(0, 120)), text };
 }
 
+// Cancellation notice: same parchment layout as the invitation, in grumpy green.
+const G = { deep: '#1f3a12', green: '#3f6e1c', lime: '#8dbb3c', paper: '#f6f0dc', ink: '#2c2a1e', gold: '#a9853b' };
+
+function cancel(g, base) {
+  const isTravel = g.grp === 'travel';
+  const subject = 'Update: A Very Merry Soirée has been cancelled';
+  const gp = (html, extra = '') => `<p style="font-size:17px;line-height:1.6;margin:12px 0;color:${G.ink};${extra}">${html}</p>`;
+  const travelLine = 'If any flights or hotel were booked for you, our team will reach out about cancelling them. Please don’t make any travel plans for the party.';
+  const inner = `
+<div style="font-family:${SERIF};font-size:13px;letter-spacing:4px;text-transform:uppercase;color:${G.gold};margin:10px 0 2px;">ETST’s Annual</div>
+<div style="font-family:${SERIF};font-size:34px;font-style:italic;color:${C.burgundy};line-height:1.15;">A Very Merry Soirée</div>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:14px auto 6px;"><tr>
+<td style="background:${G.green};border:2px solid ${G.lime};border-radius:10px;padding:10px 34px;text-align:center;font-family:${SERIF};color:#f3f7e6;">
+<div style="font-size:18px;letter-spacing:3px;text-transform:uppercase;">has been cancelled</div></td></tr></table>
+${gp('Looks like a Grinch got to our calendar.', `font-style:italic;color:${G.green};font-size:16px;margin-top:6px;`)}
+<div style="text-align:left;">
+${gp(`Dear ${esc(g.first_name)},`, `font-size:19px;color:${G.green};`)}
+${gp('We’re sorry to share that ETST’s A Very Merry Soirée, planned for <strong>Friday, December 11</strong> at Miami Springs Country Club, has been cancelled.')}
+${gp('The venue was double-booked for our date, and with fewer RSVPs than we had hoped for, we’ve decided not to move forward with the party this year.')}
+${isTravel ? gp(`<strong>${esc(travelLine)}</strong>`) : ''}
+${gp('We know this is disappointing, and we’re sorry for the inconvenience. We plan to revisit a holiday get-together at a later date and will share the details as soon as we have them.')}
+${gp('Thank you for understanding, and happy holidays!')}
+${gp('— The ETST team', `color:${G.green};font-style:italic;`)}
+</div>`;
+  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light only"><title>${esc(subject)}</title></head>
+<body style="margin:0;padding:0;background:${G.deep};">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">The December 11 party has been cancelled. We hope to celebrate together at a later date.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${G.deep};">
+<tr><td align="center" style="padding:24px 10px;">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;background:${G.paper};border-bottom:6px solid ${G.green};">
+<tr><td style="padding:0;line-height:0;"><img src="${base}/static/garland-top.jpg" width="600" alt="A red velvet bow on evergreen branches" style="display:block;width:100%;max-width:600px;height:auto;border:0;"></td></tr>
+<tr><td style="background:${G.paper} url('${base}/static/paper.jpg') repeat-y top center;background-size:100% auto;padding:0 48px 26px;font-family:${SERIF};color:${G.ink};text-align:center;">
+${inner}
+</td></tr>
+</table>
+<p style="font-family:${SERIF};font-size:12px;color:#c9d6b0;margin:14px 0 0;">Sent by ETST to ${'${to}'} · Questions? Reply to this email.</p>
+</td></tr></table></body></html>`;
+  const text = `Dear ${g.first_name},
+
+We're sorry to share that ETST's A Very Merry Soirée, planned for Friday, December 11 at Miami Springs Country Club, has been cancelled.
+
+The venue was double-booked for our date, and with fewer RSVPs than we had hoped for, we've decided not to move forward with the party this year.
+${isTravel ? '\n' + travelLine.replace('’', "'") + '\n' : ''}
+We know this is disappointing, and we're sorry for the inconvenience. We plan to revisit a holiday get-together at a later date and will share the details as soon as we have them.
+
+Thank you for understanding, and happy holidays!
+
+— The ETST team
+`;
+  return { subject, html, text };
+}
+
 function build(kind, g, base, opts = {}) {
-  const m = kind === 'invite' ? invite(g, base) : kind === 'reminder' ? reminder(g, base) : update(g, base, opts);
+  const m = kind === 'invite' ? invite(g, base) : kind === 'reminder' ? reminder(g, base) : kind === 'cancel' ? cancel(g, base) : update(g, base, opts);
   m.html = m.html.replace('${to}', esc(g.email || 'you'));
   return m;
 }

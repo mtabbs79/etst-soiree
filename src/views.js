@@ -32,7 +32,7 @@ function layout(title, body, { admin = false, bodyClass = '' } = {}) {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Great+Vibes&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/style.css?v=9">
+<link rel="stylesheet" href="/static/style.css?v=11">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='24' cy='40' r='12' fill='%237a1424'/><circle cx='42' cy='36' r='12' fill='%23a3203a'/><path d='M30 26 C34 14 44 10 52 12' stroke='%232f4a2a' stroke-width='5' fill='none'/></svg>">
 </head>
 <body class="${admin ? 'admin' : 'guest'} ${bodyClass}">
@@ -41,12 +41,12 @@ ${body}
 </html>`;
 }
 
-function card(inner) {
-  return `<main class="frame"><div class="card">
+function card(inner, { footer = true } = {}) {
+  return `<main class="frame"><div class="card${footer ? '' : ' no-footer'}">
   <img class="hero" src="/static/hero.jpg" width="1024" height="1057"
     alt="Please join us for ETST's Annual A Very Merry Soirée. Friday, December 11, 2026, 7:00 to 11:00 PM. Miami Springs Country Club, 650 Curtiss Pkwy, Miami Springs, FL 33166. After party to follow.">
   <div class="paper"><div class="paper-in">${inner}</div></div>
-  <img class="footer-art" src="/static/footer.jpg" width="1024" height="461" alt="Leave the kids at home and join us for a night out! Attire: cocktail.">
+  ${footer ? '<img class="footer-art" src="/static/footer.jpg" width="1024" height="461" alt="Leave the kids at home and join us for a night out! Attire: cocktail.">' : ''}
 </div></main>`;
 }
 
@@ -89,6 +89,19 @@ function home({ error = '', values = {} } = {}) {
     </fieldset>
   </form>
   ${footerNotes()}`));
+}
+
+// Shown on the home page and every RSVP link while EVENT_CANCELLED=true.
+function cancelledPage(g) {
+  return layout(`Cancelled · ${E.title} ${E.titleAccent}`, card(`
+  <div class="banner cancelled"><strong>This event has been cancelled</strong><em>Looks like a Grinch got to our calendar</em></div>
+  <div class="notice">
+    ${g ? `<p class="script small-script">Dear ${esc(g.first_name)},</p>` : ''}
+    <p>We’re sorry to share that the Friday, December 11 party at Miami Springs Country Club has been cancelled. The venue was double-booked for our date, and with fewer RSVPs than we had hoped for, we’ve decided not to move forward this year.</p>
+    ${g && g.grp === 'travel' ? '<p><strong>If any flights or hotel were booked for you, our team will reach out about cancelling them.</strong></p>' : ''}
+    <p>We plan to revisit a holiday get-together at a later date and will share details as soon as we have them. Thank you for understanding, and happy holidays!</p>
+    <p class="small">${contactLine()}</p>
+  </div>`, { footer: false }));
 }
 
 function radio(name, value, label, checked) {
@@ -356,6 +369,7 @@ function adminDashboard({ admin, guests, baseUrl, flash, importReport, email = {
   const companies = [...new Set(guests.map(g => g.company || (g.email.split('@')[1] || '').toLowerCase()).filter(Boolean))].sort();
   return adminShell('Dashboard', `
   ${flash ? `<div class="flash">${esc(flash)}</div>` : ''}
+  ${config.cancelled ? '<div class="errors">The party is marked as cancelled. Guests who open their RSVP link or the home page see the cancellation notice and can’t RSVP.</div>' : ''}
   ${importReport || ''}
   ${!baseUrl.startsWith('http') ? '' : ''}
   <div class="grid-3">${group('all', 'Everyone')}${group('florida', 'Florida')}${group('travel', 'Out of state (travel)')}</div>
@@ -419,7 +433,7 @@ function emailPanel(guests, email) {
   const notInvited = (grp) => guests.filter(g => g.email && !g.invited_at && (grp === 'all' || g.grp === grp)).length;
   const pending = (grp) => guests.filter(g => g.email && !g.responded && (grp === 'all' || g.grp === grp)).length;
   const grpSelect = `<select name="grp"><option value="all">Everyone</option><option value="florida">Florida</option><option value="travel">Travel</option></select>`;
-  const recent = (email.recent || []).map(r => `<li><strong>${esc({ invite: 'Invitations', reminder: 'Reminder', update: 'Update' }[r.kind] || r.kind)}</strong> · ${esc(r.subject)} · ${r.sent} sent${r.failed ? `, <span class="warn">${r.failed} failed</span>` : ''} · ${esc(fmtShortET(r.at))} by ${esc(r.sent_by)}</li>`).join('');
+  const recent = (email.recent || []).map(r => `<li><strong>${esc({ invite: 'Invitations', reminder: 'Reminder', update: 'Update', cancel: 'Cancellation' }[r.kind] || r.kind)}</strong> · ${esc(r.subject)} · ${r.sent} sent${r.failed ? `, <span class="warn">${r.failed} failed</span>` : ''} · ${esc(fmtShortET(r.at))} by ${esc(r.sent_by)}</li>`).join('');
   return `<section class="panel email-panel">
     <div class="panel-head"><h2>Email guests</h2>
       <span class="muted">From ${esc(config.mailFrom)} · replies go to ${esc(config.mailReplyTo)}${email.enabled ? ` · ${email.sentToday} sent in the last 24 hours` : ''}</span></div>
@@ -456,6 +470,13 @@ function emailPanel(guests, email) {
         <button class="btn">Preview</button>
       </form>
     </div>
+    <form method="post" action="/admin/email/preview" class="stack mini cancel-panel">
+      <input type="hidden" name="kind" value="cancel"><input type="hidden" name="grp" value="all"><input type="hidden" name="limit" value="1000">
+      <h3>Send cancellation notice</h3>
+      <p class="muted">Tells guests the party is cancelled. Travel guests also hear that the team will follow up on any flights or hotel. ${config.cancelled ? 'RSVP pages already show the cancellation.' : 'Ask the site’s technical contact to switch RSVP pages to the cancellation notice too.'}</p>
+      <label class="field"><span>Who</span><select name="who"><option value="invited">Everyone who was invited</option><option value="not-declined">Everyone invited except guests who declined</option></select></label>
+      <button class="btn">Preview</button>
+    </form>
     <form method="post" action="/admin/email/check-delivery" class="check-delivery" onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').textContent='Checking…';">
       <button class="btn ghost small">Check delivery status</button>
       <span class="muted">Asks the email service which invitations were delivered, bounced or failed. Results show in the Status column.</span>
@@ -465,7 +486,7 @@ function emailPanel(guests, email) {
 }
 
 function adminEmailPreview({ admin, kind, form, recipients, skipped, sample, enabled }) {
-  const label = { invite: 'invitation', reminder: 'reminder', update: 'update' }[kind];
+  const label = { invite: 'invitation', reminder: 'reminder', update: 'update', cancel: 'cancellation notice' }[kind];
   const hidden = Object.entries(form).map(([k, v]) => `<input type="hidden" name="${attr(k)}" value="${attr(v)}">`).join('');
   const names = recipients.slice(0, 40).map(g => `${esc(g.first_name)} ${esc(g.last_name)}`).join(', ') + (recipients.length > 40 ? `, and ${recipients.length - 40} more` : '');
   return adminShell('Preview email', `
@@ -724,4 +745,4 @@ function adminSentMessage({ admin, sm }) {
   </section>`, admin);
 }
 
-module.exports = { inviteState, adminInbox, adminInboxMessage, adminCompose, adminSentMessage, adminEmailPreview, home, rsvpForm, thanks, notFound, adminLogin, adminDashboard, adminEditGuest, esc, statusOf };
+module.exports = { cancelledPage, inviteState, adminInbox, adminInboxMessage, adminCompose, adminSentMessage, adminEmailPreview, home, rsvpForm, thanks, notFound, adminLogin, adminDashboard, adminEditGuest, esc, statusOf };

@@ -207,7 +207,11 @@ async function emailInfo() {
 
 function pickRecipients(guests, { kind, grp, who, limit }) {
   let list = guests.filter(g => grp === 'all' || g.grp === grp);
-  if (kind === 'invite' && who === 'problem') list = list.filter(g => views.inviteState(g) === 'problem');
+  if (kind === 'cancel') {
+    // Everyone who was sent an invitation; optionally skip guests who already declined.
+    list = list.filter(g => g.invited_at || g.inv_status);
+    if (who === 'not-declined') list = list.filter(g => !(g.responded && !g.attending));
+  } else if (kind === 'invite' && who === 'problem') list = list.filter(g => views.inviteState(g) === 'problem');
   else if (kind === 'invite' && who !== 'everyone') list = list.filter(g => !g.invited_at);
   if (kind === 'reminder' || who === 'pending') list = list.filter(g => !g.responded);
   if (kind === 'update' && who === 'attending') list = list.filter(g => g.responded && g.attending);
@@ -226,6 +230,7 @@ async function handle(req, res) {
 
   if (p === '/healthz') return send(res, 200, 'ok', { 'Content-Type': 'text/plain' });
   if (p.startsWith('/static/')) return serveStatic(res, p.slice('/static/'.length));
+  if (config.cancelled && (p === '/' || p === '/find')) return send(res, 200, views.cancelledPage(null));
   if (p === '/' && m === 'GET') return send(res, 200, views.home());
   if (p === '/find' && m === 'GET') return redirect(res, '/');
   if (p === '/find' && m === 'POST') {
@@ -244,6 +249,7 @@ async function handle(req, res) {
   if (mm) {
     const g = await db.guestByToken(mm[1]);
     if (!g) return send(res, 404, views.notFound());
+    if (config.cancelled && !admin) return send(res, 200, views.cancelledPage(g), { 'Cache-Control': 'no-store' });
     const closed = isClosed(g) && !admin;
     if (mm[2]) return g.responded ? send(res, 200, views.thanks(g)) : redirect(res, `/i/${g.token}`);
     if (m === 'GET') return send(res, 200, views.rsvpForm(g, { closed, adminView: !!admin }), { 'Cache-Control': 'no-store' });
@@ -298,7 +304,7 @@ async function handle(req, res) {
     if (p === '/admin/email/preview' || p === '/admin/email/test' || p === '/admin/email/send') {
       if (m !== 'POST') return redirect(res, '/admin');
       const b = await readBody(req);
-      const kind = ['invite', 'reminder', 'update'].includes(b.kind) ? b.kind : 'invite';
+      const kind = ['invite', 'reminder', 'update', 'cancel'].includes(b.kind) ? b.kind : 'invite';
       const form = { kind, grp: b.grp || 'all', who: b.who || 'new', limit: b.limit || '100', subject: clean(b.subject, 150), message: clean(b.message, 5000) };
       if (kind === 'update' && (!form.subject || !form.message)) return redirect(res, '/admin?msg=' + encodeURIComponent('Add a subject and message for the update.'));
       const { recipients, skipped } = pickRecipients(await db.listGuests(), form);
@@ -321,7 +327,7 @@ async function handle(req, res) {
         return redirect(res, '/admin?msg=' + encodeURIComponent(r.failed ? `Test failed: ${r.errors[0]}` : `Sent ${r.sent} test email${r.sent === 1 ? '' : 's'} to ${to}.`));
       }
       const r = await mail.sendTo(recipients, kind, base, admin.name, opts);
-      const what = { invite: 'invitation', reminder: 'reminder', update: 'update' }[kind];
+      const what = { invite: 'invitation', reminder: 'reminder', update: 'update', cancel: 'cancellation notice' }[kind];
       return redirect(res, '/admin?msg=' + encodeURIComponent(`Sent ${r.sent} ${what}${r.sent === 1 ? '' : 's'}.` + (r.failed ? ` ${r.failed} failed: ${r.errors[0]}` : '')));
     }
     // Inbox: read and write the info@ and rsvp@etstevent.com mailboxes (mail is received and sent by Resend).

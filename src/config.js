@@ -29,6 +29,9 @@ module.exports = {
     'etst.com': 'Earth Science Tech',
   },
 
+  // Set EVENT_CANCELLED=true in Render to turn every guest page into a cancellation notice.
+  cancelled: env.EVENT_CANCELLED === 'true',
+
   event: {
     host: "ETST's Annual",
     title: 'A Very Merry',
