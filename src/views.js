@@ -32,7 +32,7 @@ function layout(title, body, { admin = false, bodyClass = '' } = {}) {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Great+Vibes&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/style.css?v=12">
+<link rel="stylesheet" href="/static/style.css?v=13">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='24' cy='40' r='12' fill='%237a1424'/><circle cx='42' cy='36' r='12' fill='%23a3203a'/><path d='M30 26 C34 14 44 10 52 12' stroke='%232f4a2a' stroke-width='5' fill='none'/></svg>">
 </head>
 <body class="${admin ? 'admin' : 'guest'} ${bodyClass}">
@@ -95,7 +95,7 @@ function home({ error = '', values = {} } = {}) {
 function cancelledPage(g) {
   return layout(`Cancelled · ${E.title} ${E.titleAccent}`, card(`
   <div class="banner cancelled"><strong>This event has been cancelled</strong><em>Looks like a Grinch got to our calendar</em></div>
-  <img class="tree-thief" src="/static/tree-thief.png" width="1200" height="480" alt="A gorilla's shadow tiptoeing away, dragging a Christmas tree">
+  <img class="tree-thief" src="/static/elf-tree.png" width="920" height="370" alt="A grumpy elf dragging a decorated Christmas tree away by a rope">
   <div class="notice">
     ${g ? `<p class="script small-script">Dear ${esc(g.first_name)},</p>` : ''}
     <p>We’re sorry to share that the Friday, December 11 party at Miami Springs Country Club has been cancelled. The venue was double-booked for our date, and with fewer RSVPs than we had hoped for, we’ve decided not to move forward this year.</p>

@@ -124,12 +124,12 @@ function cancel(g, base) {
 <div style="font-family:${SERIF};font-size:34px;font-style:italic;color:${C.burgundy};line-height:1.15;">A Very Merry Soirée</div>
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:14px auto 6px;"><tr>
 <td style="background:${G.green};border:2px solid ${G.lime};border-radius:10px;padding:10px 34px;text-align:center;font-family:${SERIF};color:#f3f7e6;">
-<div style="font-size:18px;letter-spacing:3px;text-transform:uppercase;">has been cancelled</div></td></tr></table>
-<img src="${base}/static/tree-thief.png" width="460" alt="A gorilla's shadow tiptoeing away, dragging a Christmas tree" style="display:block;width:100%;max-width:460px;height:auto;margin:10px auto 0;border:0;">
+<div style="font-size:22px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">has been cancelled</div></td></tr></table>
+<img src="${base}/static/elf-tree.png" width="460" alt="A grumpy elf dragging a decorated Christmas tree away by a rope" style="display:block;width:100%;max-width:460px;height:auto;margin:14px auto 4px;border:0;">
 ${gp('Looks like a Grinch got to our calendar.', `font-style:italic;color:${G.green};font-size:16px;margin-top:2px;`)}
 <div style="text-align:left;">
-${gp(`Dear ${esc(g.first_name)},`, `font-size:19px;color:${G.green};`)}
-${gp('We’re sorry to share that ETST’s A Very Merry Soirée, planned for <strong>Friday, December 11</strong> at Miami Springs Country Club, has been cancelled.')}
+${gp(`Dear ${esc(g.first_name)},`, `font-size:19px;color:${G.green};font-weight:bold;`)}
+${gp('We’re sorry to share that ETST’s A Very Merry Soirée, planned for <strong>Friday, December 11</strong> at Miami Springs Country Club, has been <strong>cancelled.</strong>')}
 ${gp('The venue was double-booked for our date, and with fewer RSVPs than we had hoped for, we’ve decided not to move forward with the party this year.')}
 ${isTravel ? gp(`<strong>${esc(travelLine)}</strong>`) : ''}
 ${gp('We know this is disappointing, and we’re sorry for the inconvenience. We plan to revisit a holiday get-together at a later date and will share the details as soon as we have them.')}
