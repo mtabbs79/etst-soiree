@@ -41,7 +41,7 @@ RSVP site for ETST's Annual "A Very Merry Soirée", Fri Dec 11, 2026, 7–11 PM,
 
 - Cancellation (Nov 21): the party is being cancelled. Email kind `cancel` (mail.js `cancel()`: garland-top.jpg + parchment, green
   "has been cancelled" plaque, extra travel paragraph about booked flights/hotel; no RSVP button). Admin → Email guests →
-  "Send cancellation notice" (everyone invited / except declined; "Send at most" defaults to 95; guests who already got a cancel email are skipped, so it can go out in daily batches). Env var EVENT_CANCELLED=true turns the home page and every
+  "Send cancellation notice" (everyone invited / except declined; group picker (Travel / Florida / Everyone), "Send at most" defaults to 100; guests who already got a cancel email are skipped, so it can go out in daily batches). Env var EVENT_CANCELLED=true turns the home page and every
   /i/<token> page into the cancellation notice (views.cancelledPage) and blocks RSVPs; admins still see the normal pages.
   No Grinch artwork (copyrighted character): green colors, a one-line text nod, and an elf dragging a tree (public/elf-tree.png, artwork supplied by Mario, white background removed).
 
