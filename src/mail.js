@@ -125,7 +125,8 @@ function cancel(g, base) {
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:14px auto 6px;"><tr>
 <td style="background:${G.green};border:2px solid ${G.lime};border-radius:10px;padding:10px 34px;text-align:center;font-family:${SERIF};color:#f3f7e6;">
 <div style="font-size:18px;letter-spacing:3px;text-transform:uppercase;">has been cancelled</div></td></tr></table>
-${gp('Looks like a Grinch got to our calendar.', `font-style:italic;color:${G.green};font-size:16px;margin-top:6px;`)}
+<img src="${base}/static/tree-thief.png" width="460" alt="A gorilla's shadow tiptoeing away, dragging a Christmas tree" style="display:block;width:100%;max-width:460px;height:auto;margin:10px auto 0;border:0;">
+${gp('Looks like a Grinch got to our calendar.', `font-style:italic;color:${G.green};font-size:16px;margin-top:2px;`)}
 <div style="text-align:left;">
 ${gp(`Dear ${esc(g.first_name)},`, `font-size:19px;color:${G.green};`)}
 ${gp('We’re sorry to share that ETST’s A Very Merry Soirée, planned for <strong>Friday, December 11</strong> at Miami Springs Country Club, has been cancelled.')}

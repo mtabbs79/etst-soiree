@@ -43,7 +43,7 @@ RSVP site for ETST's Annual "A Very Merry Soirée", Fri Dec 11, 2026, 7–11 PM,
   "has been cancelled" plaque, extra travel paragraph about booked flights/hotel; no RSVP button). Admin → Email guests →
   "Send cancellation notice" (everyone invited / except declined). Env var EVENT_CANCELLED=true turns the home page and every
   /i/<token> page into the cancellation notice (views.cancelledPage) and blocks RSVPs; admins still see the normal pages.
-  No Grinch artwork: the character is copyrighted, so the theme is green colors + a one-line text nod only.
+  No Grinch artwork (copyrighted character): green colors, a one-line text nod, and an original gorilla silhouette dragging a tree (public/tree-thief.png, drawn as SVG and rendered to PNG).
 
 ## Status as of Nov 7, 2026
 - Live at https://etst-soiree.onrender.com. The database is connected. Render auto-deploys `main`; the live commit matched the repo on Nov 7.

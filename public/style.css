@@ -246,3 +246,4 @@ form.inline { display: inline; }
 .banner.cancelled { background: linear-gradient(180deg, #4a7d22, #2f5a16); border-color: #a8d05a; }
 .cancel-panel { border-top: 1px solid #eee1c6; margin-top: 14px; padding-top: 12px; max-width: 520px; }
 .card.no-footer .paper { padding-bottom: 28px; border-bottom: 8px solid #3f6e1c; }
+.tree-thief { display: block; width: 100%; max-width: 460px; height: auto; margin: 4px auto -6px; }
