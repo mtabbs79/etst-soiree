@@ -98,7 +98,7 @@ function cancelledPage(g) {
   <img class="tree-thief" src="/static/elf-tree.png" width="920" height="370" alt="A grumpy elf dragging a decorated Christmas tree away by a rope">
   <div class="notice">
     ${g ? `<p class="script small-script">Dear ${esc(g.first_name)},</p>` : ''}
-    <p>We’re sorry to share that the Friday, December 11 party at Miami Springs Country Club has been cancelled. The venue was double-booked for our date, and with fewer RSVPs than we had hoped for, we’ve decided not to move forward this year.</p>
+    <p>We’re sorry to share that the Friday, December 11 party at Miami Springs Country Club has been cancelled. The venue was double-booked for our date, and we hadn’t yet received enough RSVPs, so we’ve decided not to move forward this year.</p>
     ${g && g.grp === 'travel' ? '<p><strong>If any flights or hotel were booked for you, our team will reach out about cancelling them.</strong></p>' : ''}
     <p>We plan to revisit a holiday get-together at a later date and will share details as soon as we have them. Thank you for understanding, and happy holidays!</p>
     <p class="small">${contactLine()}</p>

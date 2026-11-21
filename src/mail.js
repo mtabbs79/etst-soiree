@@ -130,7 +130,7 @@ ${gp('Looks like a Grinch got to our calendar.', `font-style:italic;color:${G.gr
 <div style="text-align:left;">
 ${gp(`Dear ${esc(g.first_name)},`, `font-size:19px;color:${G.green};font-weight:bold;`)}
 ${gp('We’re sorry to share that ETST’s A Very Merry Soirée, planned for <strong>Friday, December 11</strong> at Miami Springs Country Club, has been <strong>cancelled.</strong>')}
-${gp('The venue was double-booked for our date, and with fewer RSVPs than we had hoped for, we’ve decided not to move forward with the party this year.')}
+${gp('The venue was double-booked for our date, and we hadn’t yet received enough RSVPs, so we’ve decided not to move forward with the party this year.')}
 ${isTravel ? gp(`<strong>${esc(travelLine)}</strong>`) : ''}
 ${gp('We know this is disappointing, and we’re sorry for the inconvenience. We plan to revisit a holiday get-together at a later date and will share the details as soon as we have them.')}
 ${gp('Thank you for understanding, and happy holidays!')}
@@ -154,7 +154,7 @@ ${inner}
 
 We're sorry to share that ETST's A Very Merry Soirée, planned for Friday, December 11 at Miami Springs Country Club, has been cancelled.
 
-The venue was double-booked for our date, and with fewer RSVPs than we had hoped for, we've decided not to move forward with the party this year.
+The venue was double-booked for our date, and we hadn't yet received enough RSVPs, so we've decided not to move forward with the party this year.
 ${isTravel ? '\n' + travelLine.replace('’', "'") + '\n' : ''}
 We know this is disappointing, and we're sorry for the inconvenience. We plan to revisit a holiday get-together at a later date and will share the details as soon as we have them.
 
